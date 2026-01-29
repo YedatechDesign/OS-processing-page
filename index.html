@@ -2,28 +2,41 @@
 <html lang="he">
 <head>
   <meta charset="UTF-8" />
-  <title>Processing order</title>
+  <title>מעבד הזמנה</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+
+<body style="
+  font-family: Arial, sans-serif;
+  text-align: center;
+  padding: 60px 20px;
+  background: #f9fafb;
+">
+
+  <h2>מעבד את ההזמנה שלך…</h2>
+  <p>אנא המתן מספר שניות</p>
 
   <script>
     const params = new URLSearchParams(window.location.search);
-    const delivery = params.get("delivery");
+    const deliveryType = params.get("delivery_type");
 
-    setTimeout(() => {
-      if (delivery === "college") {
-        window.location.href = "./thank-you.html";
-      } else if (delivery === "pickup") {
-        window.location.href = "./pickup.html";
-      } else if (delivery === "home") {
-        window.location.href = "./payment.html";
-      } else {
-        window.location.href = "./thank-you.html";
-      }
-    }, 800);
+    fetch("https://yedauto.com/webhook/order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        delivery_type: deliveryType
+      })
+    })
+      .then(response => response.json())
+      .then(data => {
+        window.location.href = data.nextUrl;
+      })
+      .catch(error => {
+        console.error("Webhook error:", error);
+      });
   </script>
-</head>
 
-<body style="font-family: Arial; text-align:center; padding-top:40px;">
-  <h2>מעבד את ההזמנה שלך…</h2>
-  <p>אנא המתן מספר שניות</p>
 </body>
 </html>
