@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8" />
+  <title>Processing order</title>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const delivery = params.get("delivery");
+
+    setTimeout(() => {
+      if (delivery === "college") {
+        window.location.href = "./thank-you.html";
+      } else if (delivery === "pickup") {
+        window.location.href = "./pickup.html";
+      } else if (delivery === "home") {
+        window.location.href = "./payment.html";
+      } else {
+        window.location.href = "./thank-you.html";
+      }
+    }, 800);
+  </script>
+</head>
+
+<body style="font-family: Arial; text-align:center; padding-top:40px;">
+  <h2>מעבד את ההזמנה שלך…</h2>
+  <p>אנא המתן מספר שניות</p>
+</body>
+</html>
