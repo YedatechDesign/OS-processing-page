@@ -1,8 +1,126 @@
 <!DOCTYPE html>
 <html lang="he">
-<head><meta charset="UTF-8" /></head>
-<body style="text-align:center; padding:40px;">
-  <h1>תשלום</h1>
-  <p>(כאן תהיה מערכת תשלומים)</p>
+<head>
+    <meta charset="UTF-8" />
+    <title>עיבוד התשלום</title>
+    <style>
+        body {
+            text-align: center;
+            padding: 40px;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            max-width: 400px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        p {
+            color: #666;
+            margin-top: 20px;
+        }
+        .error {
+            color: #d32f2f;
+            background: #ffebee;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>עיבוד התשלום</h1>
+        <div class="spinner"></div>
+        <p>מעביר אותך לעמוד התשלום של iCredit...</p>
+        <div class="error" id="error"></div>
+    </div>
+
+    <script>
+        async function processPayment() {
+            try {
+                // Get the response_id from URL parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                const responseId = urlParams.get('response_id');
+                
+                if (!responseId) {
+                    showError('ID התשובה חסר. נא לנסות שוב.');
+                    return;
+                }
+
+                // Call your N8N webhook to get the payment URL from iCredit
+                const n8nWebhookUrl = 'https://yedatechdesign.github.io/payment/'; // Your N8N webhook URL
+                
+                // Replace with your actual N8N webhook URL (get this from N8N)
+                const icreditResponse = await fetch('YOUR_N8N_WEBHOOK_URL_HERE', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        response_id: responseId 
+                    })
+                });
+
+                if (!icreditResponse.ok) {
+                    showError('שגיאה בתקשורת עם שרת התשלומים');
+                    return;
+                }
+
+                const data = await icreditResponse.json();
+                
+                if (data.url) {
+                    // Redirect to iCredit payment page
+                    window.location.href = data.url;
+                } else if (data.error) {
+                    showError('שגיאה: ' + data.error);
+                } else {
+                    showError('לא קיבלנו URL לעמוד התשלום');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('שגיאה בעיבוד הבקשה: ' + error.message);
+            }
+        }
+
+        function showError(message) {
+            document.querySelector('.spinner').style.display = 'none';
+            document.querySelector('p').style.display = 'none';
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // Start payment processing when page loads
+        window.addEventListener('load', processPayment);
+    </script>
 </body>
 </html>
+```
+
+
