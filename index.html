@@ -1,12 +1,111 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <title>Processing order</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0a2351 0%, #1e3a6f 50%, #2d4a7c 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      padding: 60px 50px;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      max-width: 550px;
+      width: 100%;
+      text-align: center;
+      border-top: 6px solid #00bcd4;
+      animation: slideIn 0.6s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-40px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    h1 {
+      color: #0a2351;
+      font-size: 32px;
+      margin-bottom: 20px;
+      font-weight: 700;
+    }
+
+    p {
+      color: #555;
+      font-size: 18px;
+      line-height: 1.7;
+    }
+
+    .spinner {
+      margin: 40px auto 10px;
+      width: 60px;
+      height: 60px;
+      border: 5px solid #e0e0e0;
+      border-top: 5px solid #00bcd4;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .error {
+      margin-top: 30px;
+      background: #ffebee;
+      color: #c62828;
+      padding: 20px;
+      border-radius: 12px;
+      font-size: 16px;
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 40px 30px;
+      }
+
+      h1 {
+        font-size: 26px;
+      }
+
+      p {
+        font-size: 16px;
+      }
+    }
+  </style>
 </head>
 
 <body>
-  <p>Processing your order…</p>
+  <div class="container">
+    <h1>Processing your order</h1>
+    <p>Please wait, we are preparing your order…</p>
+
+    <div class="spinner"></div>
+
+    <div id="message"></div>
+  </div>
 
   <script>
     (async function () {
@@ -21,8 +120,8 @@
 
         // 2. Basic validation
         if (!submissionId || !deliveryType) {
-          document.body.innerHTML =
-            '<p>Missing submission_id or delivery_type</p>';
+          document.getElementById('message').innerHTML =
+            '<div class="error">Missing submission ID or delivery type</div>';
           return;
         }
 
@@ -44,8 +143,8 @@
         console.log('n8n status:', response.status);
 
         if (!response.ok) {
-          document.body.innerHTML =
-            '<p>Error contacting server</p>';
+          document.getElementById('message').innerHTML =
+            '<div class="error">Error contacting server</div>';
           return;
         }
 
@@ -56,14 +155,14 @@
         if (data.redirectUrl) {
           window.location.href = data.redirectUrl;
         } else {
-          document.body.innerHTML =
-            '<p>No redirect URL received</p>';
+          document.getElementById('message').innerHTML =
+            '<div class="error">No redirect URL received</div>';
         }
 
       } catch (err) {
         console.error(err);
-        document.body.innerHTML =
-          '<p>Unexpected error occurred</p>';
+        document.getElementById('message').innerHTML =
+          '<div class="error">Unexpected error occurred</div>';
       }
     })();
   </script>
