@@ -220,7 +220,6 @@
 
         async function loadPickupPoints() {
     try {
-        // Call N8N proxy
         const url = `https://yedauto.com/webhook/get-pickup-points?pickupCity=${encodeURIComponent(pickupCity)}`;
         
         console.log('Calling:', url);
@@ -228,11 +227,23 @@
         const response = await fetch(url);
         const text = await response.text();
 
-        console.log('API response:', text);
+        console.log('Raw response:', text.substring(0, 200));
+
+        // N8N wraps XML in JSON with "data" field
+        let xmlString = text;
+        
+        // Check if response is JSON
+        if (text.trim().startsWith('{')) {
+            const jsonData = JSON.parse(text);
+            xmlString = jsonData.data || jsonData;
+            console.log('Extracted XML from JSON');
+        }
+
+        console.log('XML string:', xmlString.substring(0, 200));
 
         // Parse XML response
         const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(text, 'text/xml');
+        const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
         
         const spots = xmlDoc.querySelectorAll('spot_detail');
 
@@ -250,6 +261,7 @@
         showError('שגיאה בטעינת נקודות האיסוף: ' + error.message);
     }
 }
+
 
 
 
