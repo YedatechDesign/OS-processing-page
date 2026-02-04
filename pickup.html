@@ -195,14 +195,18 @@
     </div>
 
     <script>
+        let selectedPickupPoint = null;
+        let submissionId = null;
         let submissionId = null;
 
         async function init() {
             // Get parameters from URL
             const urlParams = new URLSearchParams(window.location.search);
             submissionId = urlParams.get('submission_id');
+            pickupCity = urlParams.get('pickupCity');
 
             console.log('submission_id:', submissionId);
+            console.log('pickup_city:', pickupCity);
 
             if (!submissionId) {
                 showError('חסרים פרמטרים נדרשים');
@@ -217,7 +221,7 @@
         async function loadPickupPoints() {
     try {
         // Call N8N proxy instead of direct Chita API
-        const url = `https://yedauto.com/webhook/pickup-points?city=${encodeURIComponent(city)}`;
+        const url = `https://yedauto.com/webhook/pickup-points?city=${encodeURIComponent(pickupCity)}`;
         
         const response = await fetch(url);
         const text = await response.text();
