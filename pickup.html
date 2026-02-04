@@ -213,7 +213,7 @@
                 return;
             }
 
-            document.getElementById('cityInfo').textContent = `עיר: ${city}`;
+            document.getElementById('cityInfo').textContent = `עיר: ${pickupCity}`;
 
             await loadPickupPoints();
         }
@@ -259,7 +259,7 @@
                 const code = spot.querySelector('code')?.textContent || '';
                 const name = spot.querySelector('name')?.textContent || '';
                 const address = spot.querySelector('address')?.textContent || '';
-                const city = spot.querySelector('city')?.textContent || '';
+                const city = spot.querySelector('pickupCity')?.textContent || '';
 
                 const item = document.createElement('div');
                 item.className = 'pickup-item';
