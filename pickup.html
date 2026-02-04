@@ -225,29 +225,45 @@
         console.log('Calling:', url);
         
         const response = await fetch(url);
-        const text = await response.text();
+        let xmlString = await response.text();
 
-        console.log('Raw response:', text.substring(0, 200));
+        console.log('Raw response:', xmlString.substring(0, 200));
 
-        // N8N wraps XML in JSON with "data" field
-        let xmlString = text;
-        
-        // Check if response is JSON
-        if (text.trim().startsWith('{')) {
-            const jsonData = JSON.parse(text);
+        // If wrapped in JSON, extract XML
+        if (xmlString.trim().startsWith('{')) {
+            const jsonData = JSON.parse(xmlString);
             xmlString = jsonData.data || jsonData;
             console.log('Extracted XML from JSON');
         }
 
-        console.log('XML string:', xmlString.substring(0, 200));
+        console.log('XML to parse:', xmlString.substring(0, 300));
 
-        // Parse XML response
+        // Parse XML
         const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+        const xmlDoc = parser.parseFromString(xmlString, 'application/xml');
         
-        const spots = xmlDoc.getElementsByTagName('spot_detail');
+        console.log('XML Doc:', xmlDoc);
+        console.log('Document Element:', xmlDoc.documentElement.nodeName);
+        
+        // Try multiple methods
+        let spots = xmlDoc.getElementsByTagName('spot_detail');
+        console.log('Method 1 (getElementsByTagName):', spots.length);
+        
+        if (spots.length === 0) {
+            spots = xmlDoc.querySelectorAll('spot_detail');
+            console.log('Method 2 (querySelectorAll):', spots.length);
+        }
+        
+        if (spots.length === 0) {
+            // Try finding spots container first
+            const spotsContainer = xmlDoc.getElementsByTagName('spots')[0];
+            if (spotsContainer) {
+                spots = spotsContainer.getElementsByTagName('spot_detail');
+                console.log('Method 3 (via spots container):', spots.length);
+            }
+        }
 
-        console.log('Found spots:', spots.length);
+        console.log('Final found spots:', spots.length);
 
         if (spots.length === 0) {
             showError('לא נמצאו נקודות איסוף בעיר זו');
@@ -261,6 +277,7 @@
         showError('שגיאה בטעינת נקודות האיסוף: ' + error.message);
     }
 }
+
 
 
 
