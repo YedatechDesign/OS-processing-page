@@ -219,37 +219,59 @@
         }
 
         async function loadPickupPoints() {
-            try {
-                // Call N8N proxy
-                const url = `https://yedauto.com/webhook/get-pickup-points?pickupCity=${encodeURIComponent(pickupCity)}`;
-                
-                console.log('Calling:', url);
-                
-                const response = await fetch(url);
-                const text = await response.text();
+    try {
+        const url = `https://yedauto.com/webhook/get-pickup-points?pickupCity=${encodeURIComponent(pickupCity)}`;
+        
+        console.log('Calling:', url);
+        
+        const response = await fetch(url);
+        const text = await response.text();
 
-                console.log('API response:', text);
+        console.log('API response length:', text.length);
+        console.log('API response (first 500 chars):', text.substring(0, 500));
 
-                // Parse XML response
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(text, 'text/xml');
-                
-                const spots = xmlDoc.querySelectorAll('spot_detail');
-
-                console.log('Found spots:', spots.length);
-
-                if (spots.length === 0) {
-                    showError('לא נמצאו נקודות איסוף בעיר זו');
-                    return;
-                }
-
-                displayPickupPoints(spots);
-
-            } catch (error) {
-                console.error('Error loading pickup points:', error);
-                showError('שגיאה בטעינת נקודות האיסוף: ' + error.message);
-            }
+        // Parse XML response
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(text, 'text/xml');
+        
+        // Check for parsing errors
+        const parseError = xmlDoc.querySelector('parsererror');
+        if (parseError) {
+            console.error('XML Parse Error:', parseError.textContent);
+            showError('שגיאה בעיבוד תגובת השרת');
+            return;
         }
+
+        console.log('XML parsed successfully');
+        console.log('Root element:', xmlDoc.documentElement.tagName);
+        
+        const spots = xmlDoc.querySelectorAll('spot_detail');
+        console.log('Found spots:', spots.length);
+
+        // If not found, try alternative methods
+        if (spots.length === 0) {
+            console.log('Trying alternative selectors...');
+            const spotsAlt = xmlDoc.getElementsByTagName('spot_detail');
+            console.log('Found with getElementsByTagName:', spotsAlt.length);
+            
+            // Output all tags in XML for debugging
+            const allElements = xmlDoc.getElementsByTagName('*');
+            console.log('All XML tags:', Array.from(allElements).map(el => el.tagName).slice(0, 20));
+        }
+
+        if (spots.length === 0) {
+            showError('לא נמצאו נקודות איסוף בעיר זו');
+            return;
+        }
+
+        displayPickupPoints(spots);
+
+    } catch (error) {
+        console.error('Error loading pickup points:', error);
+        showError('שגיאה בטעינת נקודות האיסוף: ' + error.message);
+    }
+}
+
 
         function displayPickupPoints(spots) {
             document.getElementById('loading').style.display = 'none';
