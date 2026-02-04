@@ -2,6 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>מעבד תשלום</title>
 
   <style>
@@ -13,6 +14,7 @@
       justify-content: center;
       align-items: center;
       padding: 20px;
+      margin: 0;
     }
 
     .container {
@@ -28,6 +30,13 @@
     h1 {
       color: #0a2351;
       margin-bottom: 20px;
+      font-size: 28px;
+    }
+
+    p {
+      color: #555;
+      font-size: 16px;
+      line-height: 1.6;
     }
 
     .spinner {
@@ -49,9 +58,39 @@
       display: none;
       background: #ffebee;
       color: #c62828;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+
+    .debug {
+      display: none;
+      background: #f5f5f5;
       padding: 15px;
       border-radius: 10px;
       margin-top: 20px;
+      text-align: left;
+      font-family: monospace;
+      font-size: 12px;
+      word-break: break-all;
+      color: #333;
+    }
+
+    .retry-btn {
+      display: none;
+      background: #00bcd4;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    .retry-btn:hover {
+      background: #0097a7;
     }
   </style>
 </head>
@@ -59,22 +98,34 @@
 <body>
   <div class="container">
     <h1>מעבד את התשלום שלך</h1>
-    <p>אנא המתן, מעבירים אותך לעמוד התשלום המאובטח…</p>
+    <p id="status">אנא המתן, מעבירים אותך לעמוד התשלום המאובטח…</p>
 
-    <div class="spinner"></div>
+    <div class="spinner" id="spinner"></div>
 
     <div class="error" id="error"></div>
+    <div class="debug" id="debug"></div>
+    
+    <button class="retry-btn" id="retryBtn" onclick="location.reload()">נסה שוב</button>
   </div>
 
   <script>
     async function startPayment() {
       try {
+        document.getElementById('status').textContent = 'מכין תשלום...';
+        
         const params = new URLSearchParams(window.location.search);
         const submissionId = params.get('submission_id');
 
+        console.log('=== Payment Debug Info ===');
+        console.log('Submission ID:', submissionId);
+        console.log('Full URL:', window.location.href);
+
         if (!submissionId) {
-          throw new Error('Missing submission_id');
+          throw new Error('Missing submission_id parameter in URL');
         }
+
+        console.log('Calling webhook...');
+        document.getElementById('status').textContent = 'יוצר קישור תשלום...';
 
         const res = await fetch(
           'https://yedauto.com/webhook/create-payment',
@@ -85,26 +136,59 @@
           }
         );
 
+        console.log('Response status:', res.status);
+        console.log('Response headers:', [...res.headers.entries()]);
+
+        if (!res.ok) {
+          throw new Error(`Server returned ${res.status}: ${res.statusText}`);
+        }
+
+        const text = await res.text();
+        console.log('Response text:', text);
+
         let data;
         try {
-          data = await res.json();
-        } catch {
-          throw new Error('Invalid server response');
+          data = JSON.parse(text);
+        } catch (e) {
+          console.error('JSON parse error:', e);
+          console.error('Response was:', text);
+          throw new Error('Server returned invalid JSON response');
         }
+
+        console.log('Parsed data:', data);
 
         if (!data.url) {
-          throw new Error('Payment URL not received');
+          console.error('No URL in response:', data);
+          throw new Error('Payment URL not received from server');
         }
 
-        window.location.href = data.url;
+        console.log('Redirecting to:', data.url);
+        document.getElementById('status').textContent = 'מעביר לעמוד התשלום...';
+        
+        // Small delay so user sees the message
+        setTimeout(() => {
+          window.location.href = data.url;
+        }, 500);
 
       } catch (err) {
-        document.querySelector('.spinner').style.display = 'none';
+        console.error('=== Payment Error ===');
+        console.error('Error:', err);
+        console.error('Stack:', err.stack);
+
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('status').textContent = 'אירעה שגיאה';
         document.getElementById('error').textContent = err.message;
         document.getElementById('error').style.display = 'block';
+        document.getElementById('retryBtn').style.display = 'inline-block';
+
+        // Show debug info
+        const debugDiv = document.getElementById('debug');
+        debugDiv.textContent = `Debug Info:\n${err.stack || err.message}`;
+        debugDiv.style.display = 'block';
       }
     }
 
+    // Start payment when page loads
     window.addEventListener('load', startPayment);
   </script>
 </body>
