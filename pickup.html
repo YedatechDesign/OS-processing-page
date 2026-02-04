@@ -215,32 +215,34 @@
         }
 
         async function loadPickupPoints() {
-            try {
-                // Call Chita API
-                const url = `https://chita-il.com/RunCom.Server/Request.aspx?APPNAME=run&PRGNAME=ws_spotslist&ARGUMENTS=-A${encodeURIComponent(city)}`;
-                const response = await fetch(url);
-                const text = await response.text();
+    try {
+        // Call N8N proxy instead of direct Chita API
+        const url = `https://yedauto.com/webhook/pickup-points?city=${encodeURIComponent(city)}`;
+        
+        const response = await fetch(url);
+        const text = await response.text();
 
-                console.log('API response:', text);
+        console.log('API response:', text);
 
-                // Parse XML response
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(text, 'text/xml');
-                
-                const spots = xmlDoc.querySelectorAll('spot');
+        // Parse XML response
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(text, 'text/xml');
+        
+        const spots = xmlDoc.querySelectorAll('spot');
 
-                if (spots.length === 0) {
-                    showError('לא נמצאו נקודות איסוף בעיר זו');
-                    return;
-                }
-
-                displayPickupPoints(spots);
-
-            } catch (error) {
-                console.error('Error loading pickup points:', error);
-                showError('שגיאה בטעינת נקודות האיסוף: ' + error.message);
-            }
+        if (spots.length === 0) {
+            showError('לא נמצאו נקודות איסוף בעיר זו');
+            return;
         }
+
+        displayPickupPoints(spots);
+
+    } catch (error) {
+        console.error('Error loading pickup points:', error);
+        showError('שגיאה בטעינת נקודות האיסוף: ' + error.message);
+    }
+}
+
 
         function displayPickupPoints(spots) {
             document.getElementById('loading').style.display = 'none';
