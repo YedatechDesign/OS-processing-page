@@ -221,7 +221,7 @@
         async function loadPickupPoints() {
     try {
         // Call N8N proxy instead of direct Chita API
-        const url = `https://yedauto.com/webhook/pickup-points?city=${encodeURIComponent(pickupCity)}`;
+        const url = `https://yedauto.com/webhook/pickup-points`; //?pickupCity=${encodeURIComponent(pickupCity)}
         
         const response = await fetch(url);
         const text = await response.text();
