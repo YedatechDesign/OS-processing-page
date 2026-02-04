@@ -195,20 +195,16 @@
     </div>
 
     <script>
-        let selectedPickupPoint = null;
         let submissionId = null;
-        let city = null;
 
         async function init() {
             // Get parameters from URL
             const urlParams = new URLSearchParams(window.location.search);
             submissionId = urlParams.get('submission_id');
-            city = urlParams.get('city');
 
             console.log('submission_id:', submissionId);
-            console.log('city:', city);
 
-            if (!submissionId || !city) {
+            if (!submissionId) {
                 showError('חסרים פרמטרים נדרשים');
                 return;
             }
@@ -222,7 +218,6 @@
             try {
                 // Call Chita API
                 const url = `https://chita-il.com/RunCom.Server/Request.aspx?APPNAME=run&PRGNAME=ws_spotslist&ARGUMENTS=-A${encodeURIComponent(city)}`;
-                
                 const response = await fetch(url);
                 const text = await response.text();
 
