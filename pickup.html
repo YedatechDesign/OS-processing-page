@@ -227,56 +227,57 @@
         const response = await fetch(url);
         let xmlString = await response.text();
 
-        console.log('Raw response:', xmlString.substring(0, 200));
+        console.log('Raw response length:', xmlString.length);
 
         // If wrapped in JSON, extract XML
         if (xmlString.trim().startsWith('{')) {
             const jsonData = JSON.parse(xmlString);
             xmlString = jsonData.data || jsonData;
-            console.log('Extracted XML from JSON');
         }
 
-        console.log('XML to parse:', xmlString.substring(0, 300));
-
-        // Parse XML
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+        // Manual parsing - extract spot_detail blocks
+        const spotRegex = /<spot_detail>([\s\S]*?)<\/spot_detail>/g;
+        const spots = [];
+        let match;
         
-        console.log('XML Doc:', xmlDoc);
-        console.log('Document Element:', xmlDoc.documentElement.nodeName);
-        
-        // Try multiple methods
-        let spots = xmlDoc.getElementsByTagName('spot_detail');
-        console.log('Method 1 (getElementsByTagName):', spots.length);
-        
-        if (spots.length === 0) {
-            spots = xmlDoc.querySelectorAll('spot_detail');
-            console.log('Method 2 (querySelectorAll):', spots.length);
+        while ((match = spotRegex.exec(xmlString)) !== null) {
+            const spotXml = match[1];
+            
+            // Extract fields
+            const getName = (xml) => {
+                const m = xml.match(/<name><!\[CDATA\[(.*?)\]\]><\/name>/);
+                return m ? m[1] : '';
+            };
+            
+            const getField = (xml, field) => {
+                const m = xml.match(new RegExp(`<${field}><!\\[CDATA\\[(.*?)\\]\\]><\/${field}>`));
+                return m ? m[1] : '';
+            };
+            
+            spots.push({
+                name: getName(spotXml),
+                street: getField(spotXml, 'street'),
+                house: getField(spotXml, 'house'),
+                city: getField(spotXml, 'city'),
+                code: getField(spotXml, 'n_code')
+            });
         }
-        
-        if (spots.length === 0) {
-            // Try finding spots container first
-            const spotsContainer = xmlDoc.getElementsByTagName('spots')[0];
-            if (spotsContainer) {
-                spots = spotsContainer.getElementsByTagName('spot_detail');
-                console.log('Method 3 (via spots container):', spots.length);
-            }
-        }
 
-        console.log('Final found spots:', spots.length);
+        console.log('Found spots:', spots.length);
 
         if (spots.length === 0) {
             showError('לא נמצאו נקודות איסוף בעיר זו');
             return;
         }
 
-        displayPickupPoints(spots);
+        displayPickupPointsFromArray(spots);
 
     } catch (error) {
         console.error('Error loading pickup points:', error);
         showError('שגיאה בטעינת נקודות האיסוף: ' + error.message);
     }
 }
+
 
 
 
@@ -314,6 +315,30 @@
                 list.appendChild(item);
             });
         }
+
+        
+        function displayPickupPointsFromArray(spots) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('submitBtn').style.display = 'block';
+
+    const list = document.getElementById('pickupList');
+    list.innerHTML = '';
+
+    spots.forEach(spot => {
+        const item = document.createElement('div');
+        item.className = 'pickup-item';
+        item.innerHTML = `
+            <div class="pickup-name">${spot.name}</div>
+            <div class="pickup-address">${spot.street} ${spot.house}, ${spot.city}</div>
+            <div class="pickup-code">קוד: ${spot.code}</div>
+        `;
+
+        item.addEventListener('click', () => selectPickupPoint(item, spot));
+
+        list.appendChild(item);
+    });
+}
+
 
         function selectPickupPoint(element, data) {
             // Remove previous selection
