@@ -221,7 +221,7 @@
         async function loadPickupPoints() {
     try {
         // Call N8N proxy instead of direct Chita API
-        const url = `https://yedauto.com/webhook/pickup-points`; //?pickupCity=${encodeURIComponent(pickupCity)}
+        const url = `https://yedauto.com/webhook/get-pickup-points?pickupCity=${encodeURIComponent(pickupCity)}`; //
         
         const response = await fetch(url);
         const text = await response.text();
@@ -297,7 +297,7 @@
 
             try {
                 // Call N8N to save selection
-                const response = await fetch('https://yedauto.com/webhook/pick-up', {
+                const response = await fetch('https://yedauto.com/webhook/select-pickup-point', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
