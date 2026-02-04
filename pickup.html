@@ -245,7 +245,7 @@
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
         
-        const spots = xmlDoc.querySelectorAll('spot_detail');
+        const spots = xmlDoc.getElementsByTagName('spot_detail');
 
         console.log('Found spots:', spots.length);
 
