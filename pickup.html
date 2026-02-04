@@ -197,7 +197,7 @@
     <script>
         let selectedPickupPoint = null;
         let submissionId = null;
-        let submissionId = null;
+        let pickupCity = null;
 
         async function init() {
             // Get parameters from URL
@@ -206,9 +206,9 @@
             pickupCity = urlParams.get('pickupCity');
 
             console.log('submission_id:', submissionId);
-            console.log('pickup_city:', pickupCity);
+            console.log('pickupCity:', pickupCity);
 
-            if (!submissionId) {
+            if (!submissionId || !pickupCity) {
                 showError('חסרים פרמטרים נדרשים');
                 return;
             }
@@ -219,34 +219,37 @@
         }
 
         async function loadPickupPoints() {
-    try {
-        // Call N8N proxy instead of direct Chita API
-        const url = `https://yedauto.com/webhook/get-pickup-points?pickupCity=${encodeURIComponent(pickupCity)}`; //
-        
-        const response = await fetch(url);
-        const text = await response.text();
+            try {
+                // Call N8N proxy
+                const url = `https://yedauto.com/webhook/get-pickup-points?pickupCity=${encodeURIComponent(pickupCity)}`;
+                
+                console.log('Calling:', url);
+                
+                const response = await fetch(url);
+                const text = await response.text();
 
-        console.log('API response:', text);
+                console.log('API response:', text);
 
-        // Parse XML response
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(text, 'text/xml');
-        
-        const spots = xmlDoc.querySelectorAll('spot');
+                // Parse XML response
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(text, 'text/xml');
+                
+                const spots = xmlDoc.querySelectorAll('spot_detail');
 
-        if (spots.length === 0) {
-            showError('לא נמצאו נקודות איסוף בעיר זו');
-            return;
+                console.log('Found spots:', spots.length);
+
+                if (spots.length === 0) {
+                    showError('לא נמצאו נקודות איסוף בעיר זו');
+                    return;
+                }
+
+                displayPickupPoints(spots);
+
+            } catch (error) {
+                console.error('Error loading pickup points:', error);
+                showError('שגיאה בטעינת נקודות האיסוף: ' + error.message);
+            }
         }
-
-        displayPickupPoints(spots);
-
-    } catch (error) {
-        console.error('Error loading pickup points:', error);
-        showError('שגיאה בטעינת נקודות האיסוף: ' + error.message);
-    }
-}
-
 
         function displayPickupPoints(spots) {
             document.getElementById('loading').style.display = 'none';
@@ -256,20 +259,26 @@
             list.innerHTML = '';
 
             spots.forEach(spot => {
-                const code = spot.querySelector('code')?.textContent || '';
+                const code = spot.querySelector('n_code')?.textContent || '';
                 const name = spot.querySelector('name')?.textContent || '';
-                const address = spot.querySelector('address')?.textContent || '';
-                const city = spot.querySelector('pickupCity')?.textContent || '';
+                const street = spot.querySelector('street')?.textContent || '';
+                const house = spot.querySelector('house')?.textContent || '';
+                const spotCity = spot.querySelector('city')?.textContent || '';
 
                 const item = document.createElement('div');
                 item.className = 'pickup-item';
                 item.innerHTML = `
                     <div class="pickup-name">${name}</div>
-                    <div class="pickup-address">${address}, ${city}</div>
+                    <div class="pickup-address">${street} ${house}, ${spotCity}</div>
                     <div class="pickup-code">קוד: ${code}</div>
                 `;
 
-                item.addEventListener('click', () => selectPickupPoint(item, { code, name, address, city }));
+                item.addEventListener('click', () => selectPickupPoint(item, { 
+                    code, 
+                    name, 
+                    address: `${street} ${house}`, 
+                    city: spotCity 
+                }));
 
                 list.appendChild(item);
             });
