@@ -114,12 +114,10 @@
         const params = new URLSearchParams(window.location.search);
         const submissionId = params.get('submission_id');
         const deliveryType = params.get('delivery_type');
-        const cityDelivery = params.get('city_delivery');
 
 
         console.log('submission_id:', submissionId);
         console.log('delivery_type:', deliveryType);
-        console.log('delivery_type:', cityDelivery);
 
 
         // 2. Basic validation
@@ -139,9 +137,7 @@
             },
             body: JSON.stringify({
               submission_id: submissionId,
-              delivery_type: deliveryType,
-              city_delivery: cityDelivery
-            })
+              delivery_type: deliveryType            })
           }
         );
 
