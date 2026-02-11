@@ -214,9 +214,45 @@
 
         <div class="info-box">
             <strong>📞 ניצור איתך קשר בקרוב</strong>
-            <p>נשלח אליך אישור סופי ופרטי משלוח בהקדם האפשרי.<br>
-            אם יש שאלות נוספות, אנחנו כאן בשבילך!</p>
+            <p>
+                נשלח אליך אישור סופי ופרטי משלוח בהקדם האפשרי.<br>
+                אם יש שאלות נוספות, אנחנו כאן בשבילך!
+            </p>
         </div>
     </div>
+
+    <script>
+        async function triggerShipment() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const submissionId = params.get("submission_id");
+
+                if (!submissionId) {
+                    console.log("No submission_id found");
+                    return;
+                }
+
+                console.log("Triggering shipment for:", submissionId);
+
+                await fetch("https://yedauto.com/webhook/create-cheetah-shipment", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        submission_id: submissionId
+                    })
+                });
+
+                console.log("Shipment trigger sent");
+
+            } catch (error) {
+                console.error("Shipment trigger failed:", error);
+            }
+        }
+
+        window.addEventListener("load", triggerShipment);
+    </script>
+
 </body>
 </html>
