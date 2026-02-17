@@ -354,8 +354,9 @@
         async function submitSelection() {
     if (!selectedPickupPoint) return;
 
-    document.getElementById('submitBtn').disabled = true;
-    document.getElementById('submitBtn').textContent = 'שומר...';
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'שומר...';
 
     try {
         const response = await fetch('https://yedauto.com/webhook/select-pickup-point', {
@@ -372,24 +373,33 @@
             })
         });
 
-        const result = await response.json();
+        const text = await response.text();
 
-        // Якщо замовлення вже створене
-        if (result.success === false) {
-            showError(result.message);
-            document.getElementById('submitBtn').disabled = false;
-            document.getElementById('submitBtn').textContent = 'אשר את הבחירה';
+        let result;
+        try {
+            result = JSON.parse(text);
+        } catch {
+            throw new Error("תגובה לא תקינה מהשרת");
+        }
+
+        console.log("Server response:", result);
+
+        // 🔴 אם השרת מחזיר success false
+        if (!result.success) {
+            showError(result.message || "לא ניתן לשנות נקודת חלוקה");
+            btn.disabled = false;
+            btn.textContent = 'אשר את הבחירה';
             return;
         }
 
-        // Якщо все успішно
+        // 🟢 הצלחה
         window.location.href = `https://yedatechdesign.github.io/OS-processing-page/thank-you.html?submission_id=${submissionId}`;
 
     } catch (error) {
         console.error('Error:', error);
-        showError('שגיאה כללית במערכת');
-        document.getElementById('submitBtn').disabled = false;
-        document.getElementById('submitBtn').textContent = 'אשר את הבחירה';
+        showError(error.message || 'שגיאה כללית במערכת');
+        btn.disabled = false;
+        btn.textContent = 'אשר את הבחירה';
     }
 }
 
