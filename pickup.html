@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>בחירת נקודת איסוף</title>
+    <title>בחירת נקודת חלוקה</title>
     <style>
         * {
             margin: 0;
@@ -177,12 +177,12 @@
 </head>
 <body>
     <div class="container">
-        <h1>בחירת נקודת איסוף 📦</h1>
+        <h1>בחירת נקודת חלוקה 📦</h1>
         <div class="city-info" id="cityInfo"></div>
 
         <div class="loading" id="loading">
             <div class="spinner"></div>
-            <p>טוען נקודות איסוף...</p>
+            <p>טוען נקודות חלוקה...</p>
         </div>
 
         <div class="error" id="error" style="display:none;"></div>
@@ -266,7 +266,7 @@
         console.log('Found spots:', spots.length);
 
         if (spots.length === 0) {
-            showError('לא נמצאו נקודות איסוף בעיר זו');
+            showError('לא נמצאו נקודות חלוקה בעיר זו');
             return;
         }
 
@@ -274,7 +274,7 @@
 
     } catch (error) {
         console.error('Error loading pickup points:', error);
-        showError('שגיאה בטעינת נקודות האיסוף: ' + error.message);
+        showError('שגיאה בטעינת נקודות חלוקה: ' + error.message);
     }
 }
 
