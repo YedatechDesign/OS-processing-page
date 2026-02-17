@@ -280,6 +280,9 @@
 
 
 
+
+
+
         function displayPickupPoints(spots) {
             document.getElementById('loading').style.display = 'none';
             document.getElementById('submitBtn').style.display = 'block';
@@ -352,56 +355,41 @@
         }
 
         async function submitSelection() {
-    if (!selectedPickupPoint) return;
+            if (!selectedPickupPoint) return;
 
-    const btn = document.getElementById('submitBtn');
-    btn.disabled = true;
-    btn.textContent = 'שומר...';
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('submitBtn').textContent = 'שומר...';
 
-    try {
-        const response = await fetch('https://yedauto.com/webhook/select-pickup-point', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                submission_id: submissionId,
-                pickup_city: selectedPickupPoint.city,
-                pickup_point_code: selectedPickupPoint.code,
-                pickup_point_name: selectedPickupPoint.name,
-                pickup_address: selectedPickupPoint.address
-            })
-        });
+            try {
+                // Call N8N to save selection
+                const response = await fetch('https://yedauto.com/webhook/select-pickup-point', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        submission_id: submissionId,
+                        pickup_city: selectedPickupPoint.city,
+                        pickup_point_code: selectedPickupPoint.code,
+                        pickup_point_name: selectedPickupPoint.name,
+                        pickup_address: selectedPickupPoint.address
+                    })
+                });
 
-        const text = await response.text();
+                if (!response.ok) {
+                    throw new Error('שגיאה בשמירת הבחירה');
+                }
 
-        let result;
-        try {
-            result = JSON.parse(text);
-        } catch {
-            throw new Error("תגובה לא תקינה מהשרת");
+                // Redirect to thank you page
+                window.location.href = `https://yedatechdesign.github.io/OS-processing-page/thank-you.html?submission_id=${submissionId}`;
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError('שגיאה בשמירת הבחירה: ' + error.message);
+                document.getElementById('submitBtn').disabled = false;
+                document.getElementById('submitBtn').textContent = 'אשר את הבחירה';
+            }
         }
-
-        console.log("Server response:", result);
-
-        // 🔴 אם השרת מחזיר success false
-        if (!result.success) {
-            showError(result.message || "לא ניתן לשנות נקודת חלוקה");
-            btn.disabled = false;
-            btn.textContent = 'אשר את הבחירה';
-            return;
-        }
-
-        // 🟢 הצלחה
-        window.location.href = `https://yedatechdesign.github.io/OS-processing-page/thank-you.html?submission_id=${submissionId}`;
-
-    } catch (error) {
-        console.error('Error:', error);
-        showError(error.message || 'שגיאה כללית במערכת');
-        btn.disabled = false;
-        btn.textContent = 'אשר את הבחירה';
-    }
-}
 
         function showError(message) {
             document.getElementById('loading').style.display = 'none';
