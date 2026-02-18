@@ -502,15 +502,16 @@
 
     // Update stats
     function updateStats(shown, total) {
-      const el = document.getElementById('stats');
-      if (shown === 0 && total === 0) {
-        el.textContent = 'טוען...';
-      } else if (shown === total) {
-        el.textContent = `מציג ${total.toLocaleString('he-IL')} נקודות פעילות`;
-      } else {
-        el.textContent = `נמצאו ${shown} נקודות מתוך ${total.toLocaleString('he-IL')}`;
-      }
-    }
+  const el = document.getElementById('stats');
+
+  if (shown === 0 && total === 0) {
+    el.textContent = 'טוען...';
+  } else if (shown === 0) {
+    el.textContent = 'לא נמצאו נקודות';
+  } else {
+    el.textContent = `נמצאו ${shown.toLocaleString('he-IL')} נקודות`;
+  }
+}
 
     // Search handler
     let searchTimeout;
