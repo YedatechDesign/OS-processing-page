@@ -205,7 +205,7 @@
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
   <script>
-    const CACHE_KEY = 'cheetah_points_cache';
+        const CACHE_KEY = 'cheetah_points_cache';
     const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
     const API_URL = 'https://yedauto.com/webhook/cheetah-points';
 
@@ -214,6 +214,7 @@
     let map;
     let markersLayer;
     let allPoints = [];
+    let currentMarkers = {};
 
     // Populate cities datalist
     function populateCities() {
@@ -225,13 +226,13 @@
       });
     }
 
-    // Initialize map
+    // Initialize map - show ALL of Israel
     function initMap() {
       map = L.map('map', {
-        preferCanvas: true // Better performance
+        preferCanvas: true
       }).fitBounds([
-        [32.82, 34.96], // Haifa
-        [32.05, 34.78]  // Tel Aviv
+        [33.3, 35.9],  // North-East (Golan)
+        [29.5, 34.3]   // South-West (Eilat)
       ]);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -259,14 +260,16 @@
         const age = Date.now() - data.timestamp;
 
         if (age > CACHE_DURATION) {
+          console.log('Cache expired');
           localStorage.removeItem(CACHE_KEY);
           return null;
         }
 
-        console.log(`Cache age: ${Math.round(age / 60000)} minutes`);
+        console.log(`Using cache (${Math.round(age / 60000)} min old)`);
         return data.points;
       } catch (error) {
         console.error('Cache error:', error);
+        localStorage.removeItem(CACHE_KEY);
         return null;
       }
     }
@@ -278,14 +281,16 @@
           points: points,
           timestamp: Date.now()
         }));
+        console.log('Cached', points.length, 'points');
       } catch (error) {
-        console.error('Cache failed:', error);
+        console.error('Cache save failed:', error);
       }
     }
 
-    // Load points
+    // Load points with better error handling
     async function loadPoints() {
       try {
+        // Try cache first
         const cached = getCachedData();
         if (cached && cached.length > 0) {
           allPoints = cached;
@@ -293,23 +298,67 @@
           return;
         }
 
-        const response = await fetch(API_URL);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        // Fetch from API with longer timeout
+        console.log('Fetching from API...');
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
+        const response = await fetch(API_URL, {
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`שגיאת שרת: ${response.status}`);
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('התגובה מהשרת אינה JSON');
+        }
 
         const data = await response.json();
-        if (data.success && data.points && data.points.length > 0) {
-          allPoints = data.points;
-          setCachedData(allPoints);
-          displayAllPoints();
-        } else {
-          throw new Error('No points returned');
+        console.log('API response:', data);
+
+        if (!data.success) {
+          throw new Error('השרת החזיר שגיאה');
         }
+
+        if (!data.points || !Array.isArray(data.points) || data.points.length === 0) {
+          throw new Error('לא התקבלו נקודות מהשרת');
+        }
+
+        allPoints = data.points;
+        setCachedData(allPoints);
+        displayAllPoints();
+
       } catch (error) {
         console.error('Load error:', error);
+        
+        let errorMessage = 'שגיאה בטעינת הנקודות';
+        let errorDetails = '';
+
+        if (error.name === 'AbortError') {
+          errorMessage = 'הבקשה ארכה יותר מדי זמן';
+          errorDetails = 'נסה שוב או בדוק את החיבור לאינטרנט';
+        } else if (error.message) {
+          errorDetails = error.message;
+        }
+
         document.getElementById('loadingDiv').innerHTML = `
           <div class="error-message">
-            ❌ שגיאה בטעינת הנקודות<br>
-            <button onclick="location.reload()" style="margin-top:15px;padding:10px 20px;cursor:pointer;background:#0a2351;color:white;border:none;border-radius:5px;">נסה שוב</button>
+            <div style="font-size:24px;margin-bottom:10px;">❌</div>
+            <strong>${errorMessage}</strong><br>
+            ${errorDetails ? `<small style="display:block;margin-top:10px;">${errorDetails}</small>` : ''}
+            <button onclick="location.reload()" style="margin-top:20px;padding:12px 30px;cursor:pointer;background:#0a2351;color:white;border:none;border-radius:8px;font-size:16px;">נסה שוב</button>
+            <div style="margin-top:15px;font-size:12px;color:#999;">
+              אם הבעיה נמשכת, נסה לרענן את הדף או לפתוח במכשיר אחר
+            </div>
           </div>
         `;
       }
@@ -317,40 +366,101 @@
 
     // Display all points
     function displayAllPoints() {
+      console.log('Displaying', allPoints.length, 'points');
+      
       document.getElementById('loadingDiv').style.display = 'none';
       document.getElementById('map').style.display = 'block';
 
       markersLayer.clearLayers();
+      currentMarkers = {};
+
+      if (allPoints.length === 0) {
+        updateStats(0, 0);
+        return;
+      }
 
       allPoints.forEach(point => {
         if (!point.lat || !point.lng) return;
         
         const marker = L.marker([point.lat, point.lng]);
-        marker.bindPopup(`
-          <div style="direction:rtl;text-align:right;min-width:220px;">
-            <div style="background:#0a2351;color:white;padding:10px;margin:-10px -10px 10px;text-align:center;">
-              <strong style="font-size:22px;">קוד: ${point.code}</strong>
-            </div>
-            <strong style="font-size:16px;display:block;margin-bottom:8px;">${point.name}</strong>
-            <div style="margin-bottom:5px;">📍 ${point.street} ${point.house}</div>
-            <div style="margin-bottom:5px;color:#0a2351;font-weight:bold;">${point.city}</div>
-            <div style="color:#666;font-size:13px;border-top:1px solid #eee;padding-top:8px;margin-top:8px;">${point.remarks || ''}</div>
-          </div>
-        `);
+        marker.bindPopup(createPopupHTML(point));
 
         markersLayer.addLayer(marker);
+        currentMarkers[point.code] = marker;
       });
 
       updateStats(allPoints.length, allPoints.length);
       
-      // Fix map display after a delay
-      setTimeout(() => map.invalidateSize(), 100);
+      setTimeout(() => {
+        map.invalidateSize();
+        console.log('Map initialized');
+      }, 100);
     }
+
+    // Create popup HTML
+    function createPopupHTML(point) {
+      return `
+        <div style="direction:rtl;text-align:right;min-width:220px;">
+          <div style="background:#0a2351;color:white;padding:10px;margin:-10px -10px 10px;text-align:center;">
+            <strong style="font-size:22px;">קוד: ${point.code}</strong>
+          </div>
+          <strong style="font-size:16px;display:block;margin-bottom:8px;">${point.name}</strong>
+          <div style="margin-bottom:5px;">📍 ${point.street} ${point.house}</div>
+          <div style="margin-bottom:5px;color:#0a2351;font-weight:bold;">${point.city}</div>
+          <div style="color:#666;font-size:13px;border-top:1px solid #eee;padding-top:8px;margin-top:8px;">${point.remarks || ''}</div>
+        </div>
+      `;
+    }
+
+    // Display points list
+    function displayPointsList(points, cityName) {
+      const container = document.getElementById('pointsListContainer');
+      const header = document.getElementById('pointsListHeader');
+      const scroll = document.getElementById('pointsListScroll');
+
+      if (points.length === 0) {
+        container.style.display = 'none';
+        return;
+      }
+
+      header.textContent = `נקודות איסוף ב${cityName} (${points.length})`;
+      
+      const cardsHTML = points.map(point => `
+        <div class="point-card" onclick="focusOnPoint('${point.code}')">
+          <div class="point-card-code">קוד: ${point.code}</div>
+          <div class="point-card-name">${point.name}</div>
+          <div class="point-card-address">📍 ${point.street} ${point.house}</div>
+          <div class="point-card-hours">${point.remarks || ''}</div>
+        </div>
+      `).join('');
+
+      scroll.innerHTML = cardsHTML;
+      container.style.display = 'block';
+
+      container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // Focus on specific point
+    function focusOnPoint(code) {
+      const marker = currentMarkers[code];
+      if (marker) {
+        const latlng = marker.getLatLng();
+        map.setView(latlng, 16);
+        marker.openPopup();
+        
+        document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    window.focusOnPoint = focusOnPoint;
 
     // Filter points
     function filterPoints(searchText) {
+      const container = document.getElementById('pointsListContainer');
+      
       if (!searchText || searchText.trim() === '') {
         displayAllPoints();
+        container.style.display = 'none';
         return;
       }
 
@@ -362,9 +472,11 @@
       );
 
       markersLayer.clearLayers();
+      currentMarkers = {};
 
       if (filtered.length === 0) {
         updateStats(0, allPoints.length);
+        container.style.display = 'none';
         return;
       }
 
@@ -373,19 +485,10 @@
         if (!point.lat || !point.lng) return;
         
         const marker = L.marker([point.lat, point.lng]);
-        marker.bindPopup(`
-          <div style="direction:rtl;text-align:right;min-width:220px;">
-            <div style="background:#0a2351;color:white;padding:10px;margin:-10px -10px 10px;text-align:center;">
-              <strong style="font-size:22px;">קוד: ${point.code}</strong>
-            </div>
-            <strong style="font-size:16px;display:block;margin-bottom:8px;">${point.name}</strong>
-            <div style="margin-bottom:5px;">📍 ${point.street} ${point.house}</div>
-            <div style="margin-bottom:5px;color:#0a2351;font-weight:bold;">${point.city}</div>
-            <div style="color:#666;font-size:13px;border-top:1px solid #eee;padding-top:8px;margin-top:8px;">${point.remarks || ''}</div>
-          </div>
-        `);
+        marker.bindPopup(createPopupHTML(point));
 
         markersLayer.addLayer(marker);
+        currentMarkers[point.code] = marker;
         bounds.push([point.lat, point.lng]);
       });
 
@@ -394,14 +497,19 @@
       }
 
       updateStats(filtered.length, allPoints.length);
+      displayPointsList(filtered, search);
     }
 
     // Update stats
     function updateStats(shown, total) {
       const el = document.getElementById('stats');
-      el.textContent = shown === total 
-        ? `מציג ${total.toLocaleString('he-IL')} נקודות פעילות`
-        : `נמצאו ${shown} נקודות מתוך ${total.toLocaleString('he-IL')}`;
+      if (shown === 0 && total === 0) {
+        el.textContent = 'טוען...';
+      } else if (shown === total) {
+        el.textContent = `מציג ${total.toLocaleString('he-IL')} נקודות פעילות`;
+      } else {
+        el.textContent = `נמצאו ${shown} נקודות מתוך ${total.toLocaleString('he-IL')}`;
+      }
     }
 
     // Search handler
@@ -412,9 +520,11 @@
     });
 
     // Initialize
+    console.log('Starting initialization...');
     populateCities();
     initMap();
     loadPoints();
+
   </script>
 </body>
 </html>
