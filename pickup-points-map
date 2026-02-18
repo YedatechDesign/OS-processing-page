@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>מפת נקודות איסוף - צ'יטה</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Leaflet MarkerCluster CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      background: #f5f5f5;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #0a2351 0%, #1e3a6f 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .search-container {
+      background: white;
+      padding: 20px;
+      margin: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 15px;
+      font-size: 16px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-family: inherit;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #0a2351;
+    }
+
+    .stats {
+      text-align: center;
+      color: #666;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    #map {
+      height: 600px;
+      margin: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      font-size: 18px;
+      color: #666;
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #0a2351;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .instructions {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 20px;
+      text-align: center;
+    }
+
+    .instructions strong {
+      color: #0a2351;
+      font-size: 18px;
+    }
+
+    /* Custom cluster icons */
+    .marker-cluster-small {
+      background-color: rgba(10, 35, 81, 0.6);
+    }
+    .marker-cluster-small div {
+      background-color: rgba(10, 35, 81, 0.8);
+      color: white;
+      font-weight: bold;
+    }
+
+    .marker-cluster-medium {
+      background-color: rgba(30, 58, 111, 0.6);
+    }
+    .marker-cluster-medium div {
+      background-color: rgba(30, 58, 111, 0.8);
+      color: white;
+      font-weight: bold;
+    }
+
+    .marker-cluster-large {
+      background-color: rgba(45, 74, 124, 0.6);
+    }
+    .marker-cluster-large div {
+      background-color: rgba(45, 74, 124, 0.8);
+      color: white;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <h1>🗺️ מפת נקודות איסוף צ'יטה</h1>
+    <p>כל הנקודות הפעילות ברחבי הארץ</p>
+  </div>
+
+  <div class="instructions">
+    <strong>💡 איך זה עובד?</strong><br>
+    חפש את העיר שלך, לחץ על הסמן במפה וכתוב את <strong>קוד הנקודה</strong> בטופס
+  </div>
+
+  <div class="search-container">
+    <input 
+      type="text" 
+      class="search-input" 
+      id="citySearch" 
+      placeholder="🔍 חפש לפי עיר (למשל: תל אביב, ירושלים, חיפה...)"
+    />
+    <div class="stats" id="stats"></div>
+  </div>
+
+  <div id="loadingDiv" class="loading">
+    <div class="spinner"></div>
+    <div>טוען נקודות איסוף...</div>
+  </div>
+
+  <div id="map" style="display:none;"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Leaflet MarkerCluster JS -->
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <script>
+    const CACHE_KEY = 'cheetah_points_cache';
+    const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+    const API_URL = 'https://yedauto.com/webhook/cheetah-points';
+
+    let map;
+    let markersLayer;
+    let allPoints = [];
+    let filteredMarkers = [];
+
+    // Initialize map
+    function initMap() {
+      map = L.map('map').setView([31.7683, 35.2137], 8);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      // Initialize marker cluster group
+      markersLayer = L.markerClusterGroup({
+        maxClusterRadius: 50,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true
+      });
+
+      map.addLayer(markersLayer);
+    }
+
+    // Get cached data
+    function getCachedData() {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (!cached) return null;
+
+        const data = JSON.parse(cached);
+        const age = Date.now() - data.timestamp;
+
+        if (age > CACHE_DURATION) {
+          localStorage.removeItem(CACHE_KEY);
+          return null;
+        }
+
+        console.log('Using cached data, age:', Math.round(age / 1000 / 60), 'minutes');
+        return data.points;
+
+      } catch (error) {
+        console.error('Cache error:', error);
+        return null;
+      }
+    }
+
+    // Set cached data
+    function setCachedData(points) {
+      try {
+        const data = {
+          points: points,
+          timestamp: Date.now()
+        };
+        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      } catch (error) {
+        console.error('Failed to cache:', error);
+      }
+    }
+
+    // Load points
+    async function loadPoints() {
+      try {
+        // Try cache first
+        const cached = getCachedData();
+        if (cached) {
+          allPoints = cached;
+          displayAllPoints();
+          return;
+        }
+
+        // Fetch from API
+        console.log('Fetching fresh data...');
+        const response = await fetch(API_URL);
+        const data = await response.json();
+
+        if (data.success && data.points) {
+          allPoints = data.points;
+          setCachedData(allPoints);
+          displayAllPoints();
+        } else {
+          throw new Error('Invalid response');
+        }
+
+      } catch (error) {
+        console.error('Error loading points:', error);
+        document.getElementById('loadingDiv').innerHTML = `
+          <div style="color: #c62828;">
+            ❌ שגיאה בטעינת הנקודות<br>
+            <button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;cursor:pointer;">נסה שוב</button>
+          </div>
+        `;
+      }
+    }
+
+    // Display all points on map
+    function displayAllPoints() {
+      document.getElementById('loadingDiv').style.display = 'none';
+      document.getElementById('map').style.display = 'block';
+
+      markersLayer.clearLayers();
+
+      allPoints.forEach(point => {
+        const marker = L.marker([point.lat, point.lng]);
+        
+        marker.bindPopup(`
+          <div style="direction:rtl;text-align:right;min-width:200px;">
+            <div style="background:#0a2351;color:white;padding:8px;margin:-10px -10px 10px;border-radius:5px 5px 0 0;">
+              <strong style="font-size:20px;">קוד: ${point.code}</strong>
+            </div>
+            <strong style="font-size:16px;">${point.name}</strong><br>
+            📍 ${point.street} ${point.house}, ${point.city}<br>
+            <small style="color:#666;">${point.remarks}</small>
+          </div>
+        `);
+
+        markersLayer.addLayer(marker);
+      });
+
+      updateStats(allPoints.length, allPoints.length);
+    }
+
+    // Search/filter points
+    function filterPoints(searchText) {
+      if (!searchText || searchText.trim() === '') {
+        displayAllPoints();
+        return;
+      }
+
+      const search = searchText.toLowerCase().trim();
+      const filtered = allPoints.filter(p => 
+        p.city.toLowerCase().includes(search) ||
+        p.name.toLowerCase().includes(search) ||
+        p.street.toLowerCase().includes(search)
+      );
+
+      markersLayer.clearLayers();
+
+      if (filtered.length === 0) {
+        updateStats(0, allPoints.length);
+        return;
+      }
+
+      const bounds = [];
+      filtered.forEach(point => {
+        const marker = L.marker([point.lat, point.lng]);
+        
+        marker.bindPopup(`
+          <div style="direction:rtl;text-align:right;min-width:200px;">
+            <div style="background:#0a2351;color:white;padding:8px;margin:-10px -10px 10px;border-radius:5px 5px 0 0;">
+              <strong style="font-size:20px;">קוד: ${point.code}</strong>
+            </div>
+            <strong style="font-size:16px;">${point.name}</strong><br>
+            📍 ${point.street} ${point.house}, ${point.city}<br>
+            <small style="color:#666;">${point.remarks}</small>
+          </div>
+        `);
+
+        markersLayer.addLayer(marker);
+        bounds.push([point.lat, point.lng]);
+      });
+
+      if (bounds.length > 0) {
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+      }
+
+      updateStats(filtered.length, allPoints.length);
+    }
+
+    // Update stats display
+    function updateStats(shown, total) {
+      document.getElementById('stats').textContent = 
+        shown === total 
+          ? `מציג ${total} נקודות פעילות`
+          : `מציג ${shown} מתוך ${total} נקודות`;
+    }
+
+    // Search input handler
+    let searchTimeout;
+    document.getElementById('citySearch').addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        filterPoints(e.target.value);
+      }, 300);
+    });
+
+    // Initialize
+    initMap();
+    loadPoints();
+  </script>
+</body>
+</html>
