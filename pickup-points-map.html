@@ -114,6 +114,16 @@
       font-size: 18px;
     }
 
+    .error-message {
+      background: #ffebee;
+      border: 1px solid #c62828;
+      color: #c62828;
+      padding: 15px;
+      margin: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
     /* Custom cluster icons */
     .marker-cluster-small {
       background-color: rgba(10, 35, 81, 0.6);
@@ -181,16 +191,19 @@
   <script>
     const CACHE_KEY = 'cheetah_points_cache';
     const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
-    const API_URL = 'https://yedauto.com/webhook/cheetah-points-map';
+    const API_URL = 'https://yedauto.com/webhook/cheetah-points';
 
     let map;
     let markersLayer;
     let allPoints = [];
-    let filteredMarkers = [];
 
-    // Initialize map
+    // Initialize map - show Tel Aviv to Haifa area
     function initMap() {
-      map = L.map('map').setView([31.7683, 35.2137], 8);
+      // Center between Tel Aviv and Haifa with appropriate zoom
+      map = L.map('map').fitBounds([
+        [32.82, 34.96], // Haifa area
+        [32.05, 34.78]  // Tel Aviv area
+      ]);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
@@ -217,15 +230,18 @@
         const age = Date.now() - data.timestamp;
 
         if (age > CACHE_DURATION) {
+          console.log('Cache expired, removing...');
           localStorage.removeItem(CACHE_KEY);
           return null;
         }
 
-        console.log('Using cached data, age:', Math.round(age / 1000 / 60), 'minutes');
+        const ageMinutes = Math.round(age / 1000 / 60);
+        console.log(`Using cached data (${ageMinutes} minutes old)`);
         return data.points;
 
       } catch (error) {
         console.error('Cache error:', error);
+        localStorage.removeItem(CACHE_KEY);
         return null;
       }
     }
@@ -238,6 +254,7 @@
           timestamp: Date.now()
         };
         localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        console.log('Cached', points.length, 'points');
       } catch (error) {
         console.error('Failed to cache:', error);
       }
@@ -248,31 +265,40 @@
       try {
         // Try cache first
         const cached = getCachedData();
-        if (cached) {
+        if (cached && cached.length > 0) {
+          console.log('Loaded from cache:', cached.length, 'points');
           allPoints = cached;
           displayAllPoints();
           return;
         }
 
         // Fetch from API
-        console.log('Fetching fresh data...');
+        console.log('Fetching fresh data from API...');
         const response = await fetch(API_URL);
-        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
 
-        if (data.success && data.points) {
+        const data = await response.json();
+        console.log('API response:', data);
+
+        if (data.success && data.points && data.points.length > 0) {
           allPoints = data.points;
           setCachedData(allPoints);
+          console.log('Loaded from API:', allPoints.length, 'points');
           displayAllPoints();
         } else {
-          throw new Error('Invalid response');
+          throw new Error('No points returned from API');
         }
 
       } catch (error) {
         console.error('Error loading points:', error);
         document.getElementById('loadingDiv').innerHTML = `
-          <div style="color: #c62828;">
+          <div class="error-message">
             ❌ שגיאה בטעינת הנקודות<br>
-            <button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;cursor:pointer;">נסה שוב</button>
+            <small>${error.message}</small><br>
+            <button onclick="location.reload()" style="margin-top:15px;padding:10px 20px;cursor:pointer;background:#0a2351;color:white;border:none;border-radius:5px;">נסה שוב</button>
           </div>
         `;
       }
@@ -280,22 +306,32 @@
 
     // Display all points on map
     function displayAllPoints() {
+      console.log('Displaying', allPoints.length, 'points');
+      
       document.getElementById('loadingDiv').style.display = 'none';
       document.getElementById('map').style.display = 'block';
 
       markersLayer.clearLayers();
 
+      if (allPoints.length === 0) {
+        document.getElementById('stats').textContent = 'לא נמצאו נקודות';
+        return;
+      }
+
       allPoints.forEach(point => {
+        if (!point.lat || !point.lng) return;
+        
         const marker = L.marker([point.lat, point.lng]);
         
         marker.bindPopup(`
-          <div style="direction:rtl;text-align:right;min-width:200px;">
-            <div style="background:#0a2351;color:white;padding:8px;margin:-10px -10px 10px;border-radius:5px 5px 0 0;">
-              <strong style="font-size:20px;">קוד: ${point.code}</strong>
+          <div style="direction:rtl;text-align:right;min-width:220px;">
+            <div style="background:#0a2351;color:white;padding:10px;margin:-10px -10px 10px;border-radius:5px 5px 0 0;text-align:center;">
+              <strong style="font-size:22px;">קוד: ${point.code}</strong>
             </div>
-            <strong style="font-size:16px;">${point.name}</strong><br>
-            📍 ${point.street} ${point.house}, ${point.city}<br>
-            <small style="color:#666;">${point.remarks}</small>
+            <strong style="font-size:16px;display:block;margin-bottom:8px;">${point.name}</strong>
+            <div style="margin-bottom:5px;">📍 ${point.street} ${point.house}</div>
+            <div style="margin-bottom:5px;color:#0a2351;font-weight:bold;">${point.city}</div>
+            <div style="color:#666;font-size:13px;border-top:1px solid #eee;padding-top:8px;margin-top:8px;">${point.remarks || ''}</div>
           </div>
         `);
 
@@ -312,12 +348,17 @@
         return;
       }
 
-      const search = searchText.toLowerCase().trim();
+      const search = searchText.trim();
+      console.log('Searching for:', search);
+      
       const filtered = allPoints.filter(p => 
-        p.city.toLowerCase().includes(search) ||
-        p.name.toLowerCase().includes(search) ||
-        p.street.toLowerCase().includes(search)
+        (p.city && p.city.includes(search)) ||
+        (p.name && p.name.includes(search)) ||
+        (p.street && p.street.includes(search)) ||
+        (p.code && p.code.includes(search))
       );
+
+      console.log('Found', filtered.length, 'matching points');
 
       markersLayer.clearLayers();
 
@@ -328,16 +369,19 @@
 
       const bounds = [];
       filtered.forEach(point => {
+        if (!point.lat || !point.lng) return;
+        
         const marker = L.marker([point.lat, point.lng]);
         
         marker.bindPopup(`
-          <div style="direction:rtl;text-align:right;min-width:200px;">
-            <div style="background:#0a2351;color:white;padding:8px;margin:-10px -10px 10px;border-radius:5px 5px 0 0;">
-              <strong style="font-size:20px;">קוד: ${point.code}</strong>
+          <div style="direction:rtl;text-align:right;min-width:220px;">
+            <div style="background:#0a2351;color:white;padding:10px;margin:-10px -10px 10px;border-radius:5px 5px 0 0;text-align:center;">
+              <strong style="font-size:22px;">קוד: ${point.code}</strong>
             </div>
-            <strong style="font-size:16px;">${point.name}</strong><br>
-            📍 ${point.street} ${point.house}, ${point.city}<br>
-            <small style="color:#666;">${point.remarks}</small>
+            <strong style="font-size:16px;display:block;margin-bottom:8px;">${point.name}</strong>
+            <div style="margin-bottom:5px;">📍 ${point.street} ${point.house}</div>
+            <div style="margin-bottom:5px;color:#0a2351;font-weight:bold;">${point.city}</div>
+            <div style="color:#666;font-size:13px;border-top:1px solid #eee;padding-top:8px;margin-top:8px;">${point.remarks || ''}</div>
           </div>
         `);
 
@@ -354,10 +398,12 @@
 
     // Update stats display
     function updateStats(shown, total) {
-      document.getElementById('stats').textContent = 
-        shown === total 
-          ? `מציג ${total} נקודות פעילות`
-          : `מציג ${shown} מתוך ${total} נקודות`;
+      const statsEl = document.getElementById('stats');
+      if (shown === total) {
+        statsEl.textContent = `מציג ${total.toLocaleString('he-IL')} נקודות פעילות`;
+      } else {
+        statsEl.textContent = `נמצאו ${shown} נקודות מתוך ${total.toLocaleString('he-IL')}`;
+      }
     }
 
     // Search input handler
@@ -370,6 +416,7 @@
     });
 
     // Initialize
+    console.log('Initializing map...');
     initMap();
     loadPoints();
   </script>
