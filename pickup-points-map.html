@@ -228,12 +228,13 @@ const GITHUB_JSON_URL = 'https://yedatechdesign.github.io/OS-processing-page/che
 
     // Initialize map - show ALL of Israel
     function initMap() {
-      map = L.map('map', {
-        preferCanvas: true
-      }).fitBounds([
-        [33.3, 35.9],  // North-East (Golan)
-        [29.5, 34.3]   // South-West (Eilat)
-      ]);
+  map = L.map('map', {
+    preferCanvas: true
+  }).fitBounds([
+    [32.82, 34.96], // Haifa
+    [32.05, 34.78]  // Tel Aviv
+  ]);
+
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap',
