@@ -181,7 +181,7 @@
   <script>
     const CACHE_KEY = 'cheetah_points_cache';
     const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
-    const API_URL = 'https://yedauto.com/webhook/cheetah-points';
+    const API_URL = 'https://yedauto.com/webhook/cheetah-points-map';
 
     let map;
     let markersLayer;
