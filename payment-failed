@@ -225,7 +225,7 @@
             
             if (submissionId) {
                 // Redirect back to payment page with the same submission_id
-                window.location.href = `https://yedatechdesign.github.io/0S-processing-page/payment.html?submission_id=${submissionId}`;
+                window.location.href = `https://yedatechdesign.github.io/OS-processing-page/payment.html?submission_id=${submissionId}`;
             } else {
                 // If no submission_id, go back
                 window.history.back();
