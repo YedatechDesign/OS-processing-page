@@ -92,7 +92,8 @@
       border-radius:8px;
       padding:15px;
       box-shadow:0 2px 6px rgba(0,0,0,0.08);
-      cursor:pointer;
+      cursor:default;
+      user-select:text;
     }
 
     .point-card-code { font-weight:700; color:#0a2351; }
@@ -125,7 +126,7 @@
   <div>טוען נקודות איסוף...</div>
 </div>
 
-<!-- ✅ ДОДАНИЙ СПИСОК -->
+<!-- רשימת נקודות — מוצגת לפני המפה לאחר חיפוש -->
 <div id="pointsListContainer" style="display:none; margin:20px;">
   <div id="pointsListHeader" style="
       font-weight:700;
@@ -133,11 +134,10 @@
       margin-bottom:15px;
       color:#0a2351;
   "></div>
-
   <div id="pointsListScroll" style="display:grid; gap:10px;"></div>
 </div>
 
-<div id="map" style="display:none;"></div>
+<div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
@@ -146,11 +146,15 @@
 const GITHUB_JSON_URL = 'https://yedatechdesign.github.io/OS-processing-page/cheetah-points.json';
 let map, markersLayer, allPoints = [], currentMarkers = {};
 
+// ישראל: מרכז ומרחק ברירת מחדל
+const ISRAEL_CENTER = [31.4, 35.0];
+const ISRAEL_ZOOM   = 8;
+
 function initMap() {
-  map = L.map('map').setView([31.8, 35.2], 8);
+  map = L.map('map').setView(ISRAEL_CENTER, ISRAEL_ZOOM);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution:'© OpenStreetMap'
+    attribution: '© OpenStreetMap'
   }).addTo(map);
 
   markersLayer = L.markerClusterGroup();
@@ -158,14 +162,25 @@ function initMap() {
 }
 
 async function loadPoints() {
-  const response = await fetch(GITHUB_JSON_URL + '?t=' + Date.now());
-  const data = await response.json();
-  allPoints = data.points || [];
-  document.getElementById('loadingDiv').style.display='none';
-  document.getElementById('map').style.display='block';
+  try {
+    const response = await fetch(GITHUB_JSON_URL + '?t=' + Date.now());
+    const data = await response.json();
+    allPoints = data.points || [];
+
+    // מלא את רשימת הערים
+    const cities = [...new Set(allPoints.map(p => p.city).filter(Boolean))].sort();
+    const datalist = document.getElementById('citiesList');
+    datalist.innerHTML = cities.map(c => `<option value="${c}">`).join('');
+
+    document.getElementById('stats').textContent = `סה"כ ${allPoints.length} נקודות ב-${cities.length} ערים`;
+  } catch(e) {
+    console.error('שגיאה בטעינת הנקודות:', e);
+  } finally {
+    document.getElementById('loadingDiv').style.display = 'none';
+  }
 }
 
-function createPopupHTML(point){
+function createPopupHTML(point) {
   return `
     <div style="direction:rtl;text-align:right;">
       <strong>קוד: ${point.code}</strong><br>
@@ -177,17 +192,17 @@ function createPopupHTML(point){
 
 function displayPointsList(points, cityName) {
   const container = document.getElementById('pointsListContainer');
-  const header = document.getElementById('pointsListHeader');
-  const scroll = document.getElementById('pointsListScroll');
+  const header    = document.getElementById('pointsListHeader');
+  const scroll    = document.getElementById('pointsListScroll');
 
-  if(points.length===0){
-    container.style.display='none';
+  if (points.length === 0) {
+    container.style.display = 'none';
     return;
   }
 
-  header.textContent = `עיר: ${cityName} (${points.length})`;
+  header.textContent = `עיר: ${cityName} — נמצאו ${points.length} נקודות איסוף`;
 
-  scroll.innerHTML = points.map(point=>`
+  scroll.innerHTML = points.map(point => `
     <div class="point-card">
       <div class="point-card-code">קוד: ${point.code}</div>
       <div class="point-card-name">${point.name}</div>
@@ -195,30 +210,53 @@ function displayPointsList(points, cityName) {
     </div>
   `).join('');
 
-  container.style.display='block';
+  container.style.display = 'block';
 }
 
-function filterPoints(searchText){
-  if(!searchText){ markersLayer.clearLayers(); return; }
-
-  const filtered = allPoints.filter(p=>p.city?.includes(searchText));
-
+function filterPoints(searchText) {
   markersLayer.clearLayers();
-  currentMarkers={};
+  currentMarkers = {};
 
-  filtered.forEach(point=>{
-    if(!point.lat || !point.lng) return;
-    const marker=L.marker([point.lat,point.lng]);
+  if (!searchText) {
+    // חזרה לתצוגת ישראל כאשר אין חיפוש
+    document.getElementById('pointsListContainer').style.display = 'none';
+    map.setView(ISRAEL_CENTER, ISRAEL_ZOOM);
+    return;
+  }
+
+  const filtered = allPoints.filter(p => p.city?.includes(searchText));
+
+  // הצג את הרשימה לפני המפה
+  displayPointsList(filtered, searchText);
+
+  // הוסף מרקרים למפה
+  const bounds = [];
+  filtered.forEach(point => {
+    if (!point.lat || !point.lng) return;
+    const marker = L.marker([point.lat, point.lng]);
     marker.bindPopup(createPopupHTML(point));
     markersLayer.addLayer(marker);
-    currentMarkers[point.code]=marker;
+    currentMarkers[point.code] = marker;
+    bounds.push([point.lat, point.lng]);
   });
 
-  displayPointsList(filtered, searchText);
+  // התאם את תצוגת המפה לנקודות שנמצאו
+  if (bounds.length > 0) {
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+  }
 }
 
-document.getElementById('citySearch').addEventListener('input',(e)=>{
+// האזן גם ל-change (בחירה מה-datalist) וגם ל-input (הקלדה ידנית)
+const citySearchEl = document.getElementById('citySearch');
+
+citySearchEl.addEventListener('change', (e) => {
   filterPoints(e.target.value.trim());
+});
+
+citySearchEl.addEventListener('input', (e) => {
+  const val = e.target.value.trim();
+  // הפעל רק אם הערך ריק (ניקוי החיפוש) או אם הוא עיר קיימת
+  if (!val) filterPoints('');
 });
 
 initMap();
