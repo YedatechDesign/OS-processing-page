@@ -5,504 +5,225 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>מפת נקודות איסוף - צ'יטה</title>
   
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  
-  <!-- Leaflet MarkerCluster CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
   
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-      background: #f5f5f5;
-    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; background:#f5f5f5; }
 
     .header {
-      background: linear-gradient(135deg, #0a2351 0%, #1e3a6f 100%);
-      color: white;
-      padding: 20px;
-      text-align: center;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-
-    .header h1 {
-      font-size: 24px;
-      margin-bottom: 10px;
-    }
-
-    .header p {
-      font-size: 14px;
-      opacity: 0.9;
+      background:linear-gradient(135deg,#0a2351 0%,#1e3a6f 100%);
+      color:white; padding:20px; text-align:center;
+      box-shadow:0 2px 10px rgba(0,0,0,0.1);
     }
 
     .instructions {
-      background: #e0e0e0; /* Changed from yellow to gray */
-      border: 1px solid #999;
-      border-radius: 8px;
-      padding: 15px;
-      margin: 20px;
-      text-align: center;
-    }
-
-    .instructions strong {
-      color: #0a2351;
-      font-size: 18px;
+      background:#e0e0e0;
+      border:1px solid #999;
+      border-radius:8px;
+      padding:15px;
+      margin:20px;
+      text-align:center;
     }
 
     .search-container {
-      background: white;
-      padding: 20px;
-      margin: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      background:white;
+      padding:20px;
+      margin:20px;
+      border-radius:10px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.1);
     }
 
     .search-input {
-      width: 100%;
-      padding: 15px;
-      font-size: 16px;
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      font-family: inherit;
+      width:100%;
+      padding:15px;
+      font-size:16px;
+      border:2px solid #ddd;
+      border-radius:8px;
     }
 
     .search-input:focus {
-      outline: none;
-      border-color: #0a2351;
+      outline:none;
+      border-color:#0a2351;
     }
 
     .stats {
-      text-align: center;
-      color: #666;
-      margin-top: 10px;
-      font-size: 14px;
+      text-align:center;
+      color:#666;
+      margin-top:10px;
+      font-size:14px;
     }
 
     #map {
-      height: 600px;
-      margin: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      position: relative; /* Fixed positioning issue */
-      z-index: 1;
-    }
-
-    /* Fix for leaflet yellow tiles */
-    .leaflet-tile-container {
-      pointer-events: none;
-    }
-    
-    .leaflet-tile {
-      pointer-events: auto;
+      height:600px;
+      margin:20px;
+      border-radius:10px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.1);
+      position:relative;
+      z-index:1;
     }
 
     .loading {
-      text-align: center;
-      padding: 40px;
-      font-size: 18px;
-      color: #666;
+      text-align:center;
+      padding:40px;
+      font-size:18px;
+      color:#666;
     }
 
     .spinner {
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #0a2351;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 20px auto;
+      border:4px solid #f3f3f3;
+      border-top:4px solid #0a2351;
+      border-radius:50%;
+      width:40px;
+      height:40px;
+      animation:spin 1s linear infinite;
+      margin:20px auto;
     }
 
     @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0% { transform:rotate(0deg); }
+      100% { transform:rotate(360deg); }
     }
 
-    .error-message {
-      background: #ffebee;
-      border: 1px solid #c62828;
-      color: #c62828;
-      padding: 15px;
-      margin: 20px;
-      border-radius: 8px;
-      text-align: center;
+    .point-card {
+      background:white;
+      border-radius:8px;
+      padding:15px;
+      box-shadow:0 2px 6px rgba(0,0,0,0.08);
+      cursor:pointer;
     }
 
-    /* Custom cluster icons */
-    .marker-cluster-small {
-      background-color: rgba(10, 35, 81, 0.6);
-    }
-    .marker-cluster-small div {
-      background-color: rgba(10, 35, 81, 0.8);
-      color: white;
-      font-weight: bold;
-    }
-
-    .marker-cluster-medium {
-      background-color: rgba(30, 58, 111, 0.6);
-    }
-    .marker-cluster-medium div {
-      background-color: rgba(30, 58, 111, 0.8);
-      color: white;
-      font-weight: bold;
-    }
-
-    .marker-cluster-large {
-      background-color: rgba(45, 74, 124, 0.6);
-    }
-    .marker-cluster-large div {
-      background-color: rgba(45, 74, 124, 0.8);
-      color: white;
-      font-weight: bold;
-    }
+    .point-card-code { font-weight:700; color:#0a2351; }
+    .point-card-name { margin-top:5px; }
+    .point-card-address { margin-top:5px; color:#666; }
   </style>
 </head>
 
 <body>
-  <div class="header">
-    <h1>🗺️ מפת נקודות איסוף צ'יטה</h1>
-    <p>כל הנקודות הפעילות ברחבי הארץ</p>
-  </div>
 
-  <div class="instructions">
-    <strong>💡 איך זה עובד?</strong><br>
-    בחר עיר מהרשימה, לחץ על הסמן במפה וכתוב את <strong>קוד הנקודה</strong> בטופס
-  </div>
+<div class="header">
+  <h1>🗺️ מפת נקודות איסוף צ'יטה</h1>
+  <p>כל הנקודות הפעילות ברחבי הארץ</p>
+</div>
 
-  <div class="search-container">
-    <input 
-      type="text" 
-      class="search-input" 
-      id="citySearch" 
-      list="citiesList"
-      placeholder="🔍 בחר עיר מהרשימה..."
-      autocomplete="off"
-    />
-    <datalist id="citiesList">
-      <!-- Cities will be populated here -->
-    </datalist>
-    <div class="stats" id="stats"></div>
-  </div>
+<div class="instructions">
+  <strong>💡 איך זה עובד?</strong><br>
+  בחר עיר מהרשימה, לחץ על הסמן במפה וכתוב את <strong>קוד הנקודה</strong> בטופס
+</div>
 
-  <div id="loadingDiv" class="loading">
-    <div class="spinner"></div>
-    <div>טוען נקודות איסוף...</div>
-  </div>
+<div class="search-container">
+  <input type="text" class="search-input" id="citySearch" list="citiesList"
+    placeholder="🔍 בחר עיר מהרשימה..." autocomplete="off" />
+  <datalist id="citiesList"></datalist>
+  <div class="stats" id="stats"></div>
+</div>
 
-  <div id="map" style="display:none;"></div>
+<div id="loadingDiv" class="loading">
+  <div class="spinner"></div>
+  <div>טוען נקודות איסוף...</div>
+</div>
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  
-  <!-- Leaflet MarkerCluster JS -->
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<!-- ✅ ДОДАНИЙ СПИСОК -->
+<div id="pointsListContainer" style="display:none; margin:20px;">
+  <div id="pointsListHeader" style="
+      font-weight:700;
+      font-size:18px;
+      margin-bottom:15px;
+      color:#0a2351;
+  "></div>
 
-  <script>
-        const CACHE_KEY = 'cheetah_points_cache';
-    const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+  <div id="pointsListScroll" style="display:grid; gap:10px;"></div>
+</div>
+
+<div id="map" style="display:none;"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<script>
 const GITHUB_JSON_URL = 'https://yedatechdesign.github.io/OS-processing-page/cheetah-points.json';
+let map, markersLayer, allPoints = [], currentMarkers = {};
 
-    const CITIES = ["אבו גוש","אבו סנאן","אבטין","אבטליון","אביבים","אביטל","אביעזר","אבן יהודה","אבני חפץ","אום אל-פחם","אומן","אופקים","אור עקיבא","אורטל","אורים","אורנית","אושה","אזור","אייל","אילת","איתמר","אכסאל","אלומה","אלון הגליל","אלון מורה","אלון שבות","אליכין","אליפלט","אלמוג","אלעד","אלפי מנשה","אלקנה","אמירים","אניעם","אספר","אעבלין","אפיקים","ארבל","אריאל","אשבול","אשדוד","אשדות יעקב (מאוחד)","אשכולות","אשלים","אשקלון","אשתאול","באקה אל-גרביה","באר טוביה","באר יעקב","באר מילכא","באר שבע","בועיינה-נוג'ידאת","בוקעאתא","ביר אל-מכסור","ביריה","בית אורן","בית אל","בית אריה","בית ג'ן","בית גמליאל","בית הלל","בית השיטה","בית זרע","בית חגי","בית חורון","בית מאיר","בית נחמיה","בית קמה","בית קשת","בית רימון","בית שאן","בית שמש","ביתן אהרן","ביתר עילית","בן נון","בן שמן (מושב)","בני ברק","בני יהודה","בני נצרים","בני עטרות","בנימינה-גבעת עדה","בסמת טבעון","ברוש","ברכה","ברכיה","בת הדר","בת חפר","בת ים","ג'דיידה-מכר","ג'ולס","ג'לג'וליה","ג'סר א-זרקא","גבע","גבע כרמל","גבעות בר","גבעת אבני","גבעת אלה","גבעת זאב","גבעת חיים (איחוד)","גבעת עדה","גבעת עוז","גבעת שמואל","גבעתי","גבעתיים","גבת","גדרה","גינתון","גלגל","גן הדרום","גן חיים","גן יבנה","גריזים","גשר","דאלית אל-כרמל","דבוריה","דביר","דגניה ב'","דייר אל-אסד","דייר חנא","דימונה","דישון","דן","הוד השרון","הושעיה","הזורעים","החותרים","היוגב","הסוללים","הר גילה","הר חלוץ","הר עמשא","הרצליה","זבדיאל","זובידאת","זוהר","זיתן","זכרון יעקב","זמר","זמרת","זרזיר","חגור","חד-נס","חדיד","חדרה","חולדה","חולון","חולתה","חוסן","חוסנייה","חוקוק","חורה","חורפיש","חזון","חיפה","חלץ","חמדיה","חמרה","חצבה","חצור הגלילית","חצרים","חריש","טבריה","טובא-זנגריה","טייבה","טייבה (בעמק)","טירה","טירת כרמל","טירת צבי","טללים","טלמון","טמרה","טנא","יאנוח-ג'ת","יבול","יבנאל","יבנה","יד בנימין","יד חנה","יד נתן","יהוד-מונוסון","יחיעם","ינוב","יעד","יפיע","יקנעם עילית","ירוחם","ירושלים","ירכא","יתיר","כאבול","כאוכב אבו אל-היג'א","כוכב השחר","כוכב מיכאל","כורזים","כיסופים","כמאנה","כנף","כנרת (מושבה)","כנרת (קבוצה)","כסרא-סמיע","כעביה-טבאש-חג'אג'רה","כפר אוריה","כפר ביאליק","כפר ברא","כפר ברוך","כפר דניאל","כפר ויתקין","כפר ורדים","כפר חב\"ד","כפר חסידים א'","כפר חרוב","כפר טרומן","כפר יאסיף","כפר ידידיה","כפר יונה","כפר כמא","כפר כנא","כפר מימון","כפר מנדא","כפר מנחם","כפר סבא","כפר עציון","כפר קאסם","כפר קרע","כפר רופין","כפר שמאי","כפר תבור","כרמי צור","כרמי קטיף","כרמיאל","כרמיה","כרמים","כרמל","לבון","להבות הבשן","להבים","לוד","לוזית","ליבנה","לקיה","מאור","מבוא חורון","מבואות יריחו","מבקיעים","מבשרת ציון","מג'ד אל-כרום","מג'דל שמס","מגאר","מגדל","מגדל העמק","מגן שאול","מדרך עוז","מודיעין עילית","מודיעין-מכבים-רעות","מולדת","מורשת","מזור","מזכרת בתיה","מטולה","מירב","מישור אדומים","מיתרים","מנוף","מנשית זבדה","מסילות","מסלול","מסעדה","מעיליא","מעלה אדומים","מעלה אפרים","מעלה מכמש","מעלה עמוס","מעלה שומרון","מעלות-תרשיחא","מפגש הבקעה","מצפה רמון","מצפה שלם","מרום גולן","מרחב עם","משגב תרדיון","משהד","משמר הירדן","משמר הנגב","משען","נאות גולן","נאעורה","נגבה","נגוהות","נהורה","נהריה","נוה צוף","נווה אור","נווה אילן","נווה דניאל","נוף הגליל","נופי פרת","נוקדים","נחף","נטור","נטע","ניין","ניצן ב'","ניר בנים","ניר גלים","ניר עציון","נס ציונה","נעלה","נעמ\"ה","נען","נצרת","נריה","נשר","נתיבות","נתניה","סאג'ור","סגולה","סח'נין","סלעית","עדי","עדיעד","עומר","עופר","עופרה","עזריאל","עזריה","עטרת","עידן הנגב","עיילבון","עילוט","עין אל-אסד","עין גדי","עין דור","עין הבשור","עין הוד","עין הנצי\"ב","עין זיוון","עין חרוד (מאוחד)","עין מאהל","עין נקובא","עין קנייא","עין שמר","עין שריד","עין תמר","עכו","עלי","עמינדב","עמיעוז","ענב","ענתות","עספיא","עפולה","עץ אפרים","עראבה","ערד","ערערה","ערערה-בנגב","עשהאל","עתלית","עתניאל","פארן","פדואל","פוריה - נווה עובד","פוריה עילית","פוריידיס","פורת","פסגות","פסוטה","פצאל","פקיעין (בוקייעה)","פרדס חנה-כרכור","פרדסיה","פתח תקווה","פתחיה","צובה","צומת גוש עציון","צופים","צופית","צור הדסה","צור יגאל","צור משה","צוריאל","צפת","קדומים","קדימה-צורן","קדש ברנע","קיסריה","קלנסווה","קצרין","קרית אונו","קרית ארבע","קרית אתא","קרית ביאליק","קרית גת","קרית חיים","קרית טבעון","קרית ים","קרית מוצקין","קרית מלאכי","קרית נטפים","קרית עקרון","קרית שמונה","קרני שומרון","קשת","ראמה","ראש העין","ראש פינה","ראש צורים","ראשון לציון","רבבה","רביבים","רגבה","רווחה","רוויה","רוחמה","רומת הייב","רחובות","רחלים","ריחאניה","ריינה","רכסים","רמות","רמות מאיר","רמלה","רמת גן","רמת השרון","רמת ישי","רמת צבי","רעננה","רקפת","רשפ עלי אקספרס","רשפון","רתמים","שדה אילן","שדה אליהו","שדה יעקב","שדה יצחק","שדה נחום","שדמות מחולה","שדרות","שואבה","שובל","שוהם","שומרה","שומריה","שורש","שזור","שילה","שילת","שלוחות","שלומי","שעב","שעל","שער הגולן","שפרעם","שקד","שריגים (לי-און)","שריד","תימורים","תל אביב - יפו","תל יצחק","תל מונד","תל עדשים","תלם","תנובות","תעוז","תקומה"];
+function initMap() {
+  map = L.map('map').setView([31.8, 35.2], 8);
 
-    let map;
-    let markersLayer;
-    let allPoints = [];
-    let currentMarkers = {};
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'© OpenStreetMap'
+  }).addTo(map);
 
-    // Populate cities datalist
-    function populateCities() {
-      const datalist = document.getElementById('citiesList');
-      CITIES.forEach(city => {
-        const option = document.createElement('option');
-        option.value = city;
-        datalist.appendChild(option);
-      });
-    }
+  markersLayer = L.markerClusterGroup();
+  map.addLayer(markersLayer);
+}
 
-    // Initialize map - show ALL of Israel
-    function initMap() {
-  map = L.map('map', {
-    preferCanvas: true
-  }).fitBounds([
-    [32.82, 34.96], // Haifa
-    [32.05, 34.78]  // Tel Aviv
-  ]);
+async function loadPoints() {
+  const response = await fetch(GITHUB_JSON_URL + '?t=' + Date.now());
+  const data = await response.json();
+  allPoints = data.points || [];
+  document.getElementById('loadingDiv').style.display='none';
+  document.getElementById('map').style.display='block';
+}
 
+function createPopupHTML(point){
+  return `
+    <div style="direction:rtl;text-align:right;">
+      <strong>קוד: ${point.code}</strong><br>
+      ${point.name}<br>
+      📍 ${point.street} ${point.house}<br>
+      <strong>${point.city}</strong>
+    </div>`;
+}
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap',
-        maxZoom: 19
-      }).addTo(map);
+function displayPointsList(points, cityName) {
+  const container = document.getElementById('pointsListContainer');
+  const header = document.getElementById('pointsListHeader');
+  const scroll = document.getElementById('pointsListScroll');
 
-      markersLayer = L.markerClusterGroup({
-        maxClusterRadius: 50,
-        spiderfyOnMaxZoom: true,
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true
-      });
-
-      map.addLayer(markersLayer);
-    }
-
-    // Get cached data
-    function getCachedData() {
-      try {
-        const cached = localStorage.getItem(CACHE_KEY);
-        if (!cached) return null;
-
-        const data = JSON.parse(cached);
-        const age = Date.now() - data.timestamp;
-
-        if (age > CACHE_DURATION) {
-          console.log('Cache expired');
-          localStorage.removeItem(CACHE_KEY);
-          return null;
-        }
-
-        console.log(`Using cache (${Math.round(age / 60000)} min old)`);
-        return data.points;
-      } catch (error) {
-        console.error('Cache error:', error);
-        localStorage.removeItem(CACHE_KEY);
-        return null;
-      }
-    }
-
-    // Set cached data
-    function setCachedData(points) {
-      try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify({
-          points: points,
-          timestamp: Date.now()
-        }));
-        console.log('Cached', points.length, 'points');
-      } catch (error) {
-        console.error('Cache save failed:', error);
-      }
-    }
-
-    // Load points with better error handling
-    async function loadPoints() {
-  try {
-    const cached = getCachedData();
-    if (cached?.length > 0) {
-      console.log('✅ Loaded from cache:', cached.length, 'points');
-      allPoints = cached;
-      displayAllPoints();
-      return;
-    }
-
-    console.log('📡 Fetching from GitHub...');
-    const response = await fetch(GITHUB_JSON_URL + '?t=' + Date.now());
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    console.log('📦 Received data:', data);
-    
-    if (!data.points || !Array.isArray(data.points)) {
-      throw new Error('Invalid data format');
-    }
-    
-    if (data.points.length === 0) {
-      throw new Error('No points in file');
-    }
-
-    allPoints = data.points;
-    setCachedData(allPoints);
-    console.log('✅ Loaded', allPoints.length, 'points');
-    displayAllPoints();
-    
-  } catch (error) {
-    console.error('❌ Load error:', error);
-    document.getElementById('loadingDiv').innerHTML = `
-      <div class="error-message">
-        <div style="font-size:24px;margin-bottom:10px;">❌</div>
-        <strong>שגיאה בטעינת הנקודות</strong><br>
-        <small style="display:block;margin:10px 0;color:#666;">${error.message}</small>
-        <button onclick="clearCacheAndReload()" style="margin-top:20px;padding:12px 30px;cursor:pointer;background:#0a2351;color:white;border:none;border-radius:8px;">נקה זיכרון מטמון ונסה שוב</button>
-      </div>
-    `;
+  if(points.length===0){
+    container.style.display='none';
+    return;
   }
+
+  header.textContent = `עיר: ${cityName} (${points.length})`;
+
+  scroll.innerHTML = points.map(point=>`
+    <div class="point-card">
+      <div class="point-card-code">קוד: ${point.code}</div>
+      <div class="point-card-name">${point.name}</div>
+      <div class="point-card-address">📍 ${point.street} ${point.house}</div>
+    </div>
+  `).join('');
+
+  container.style.display='block';
 }
 
-function clearCacheAndReload() {
-  localStorage.removeItem('cheetah_points_cache');
-  location.reload();
+function filterPoints(searchText){
+  if(!searchText){ markersLayer.clearLayers(); return; }
+
+  const filtered = allPoints.filter(p=>p.city?.includes(searchText));
+
+  markersLayer.clearLayers();
+  currentMarkers={};
+
+  filtered.forEach(point=>{
+    if(!point.lat || !point.lng) return;
+    const marker=L.marker([point.lat,point.lng]);
+    marker.bindPopup(createPopupHTML(point));
+    markersLayer.addLayer(marker);
+    currentMarkers[point.code]=marker;
+  });
+
+  displayPointsList(filtered, searchText);
 }
 
+document.getElementById('citySearch').addEventListener('input',(e)=>{
+  filterPoints(e.target.value.trim());
+});
 
-    // Display all points
-    function displayAllPoints() {
-      console.log('Displaying', allPoints.length, 'points');
-      
-      document.getElementById('loadingDiv').style.display = 'none';
-      document.getElementById('map').style.display = 'block';
+initMap();
+loadPoints();
+</script>
 
-      markersLayer.clearLayers();
-      currentMarkers = {};
-
-      if (allPoints.length === 0) {
-        updateStats(0, 0);
-        return;
-      }
-
-      allPoints.forEach(point => {
-        if (!point.lat || !point.lng) return;
-        
-        const marker = L.marker([point.lat, point.lng]);
-        marker.bindPopup(createPopupHTML(point));
-
-        markersLayer.addLayer(marker);
-        currentMarkers[point.code] = marker;
-      });
-
-      updateStats(allPoints.length, allPoints.length);
-      
-      setTimeout(() => {
-        map.invalidateSize();
-        console.log('Map initialized');
-      }, 100);
-    }
-
-    // Create popup HTML
-    function createPopupHTML(point) {
-      return `
-        <div style="direction:rtl;text-align:right;min-width:220px;">
-          <div style="background:#0a2351;color:white;padding:10px;margin:-10px -10px 10px;text-align:center;">
-            <strong style="font-size:22px;">קוד: ${point.code}</strong>
-          </div>
-          <strong style="font-size:16px;display:block;margin-bottom:8px;">${point.name}</strong>
-          <div style="margin-bottom:5px;">📍 ${point.street} ${point.house}</div>
-          <div style="margin-bottom:5px;color:#0a2351;font-weight:bold;">${point.city}</div>
-          <div style="color:#666;font-size:13px;border-top:1px solid #eee;padding-top:8px;margin-top:8px;">${point.remarks || ''}</div>
-        </div>
-      `;
-    }
-
-    // Display points list
-    function displayPointsList(points, cityName) {
-      const container = document.getElementById('pointsListContainer');
-      const header = document.getElementById('pointsListHeader');
-      const scroll = document.getElementById('pointsListScroll');
-
-      if (points.length === 0) {
-        container.style.display = 'none';
-        return;
-      }
-
-      header.textContent = `נקודות איסוף ב${cityName} (${points.length})`;
-      
-      const cardsHTML = points.map(point => `
-        <div class="point-card" onclick="focusOnPoint('${point.code}')">
-          <div class="point-card-code">קוד: ${point.code}</div>
-          <div class="point-card-name">${point.name}</div>
-          <div class="point-card-address">📍 ${point.street} ${point.house}</div>
-          <div class="point-card-hours">${point.remarks || ''}</div>
-        </div>
-      `).join('');
-
-      scroll.innerHTML = cardsHTML;
-      container.style.display = 'block';
-
-      container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    // Focus on specific point
-    function focusOnPoint(code) {
-      const marker = currentMarkers[code];
-      if (marker) {
-        const latlng = marker.getLatLng();
-        map.setView(latlng, 16);
-        marker.openPopup();
-        
-        document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
-
-    window.focusOnPoint = focusOnPoint;
-
-    // Filter points
-    function filterPoints(searchText) {
-      const container = document.getElementById('pointsListContainer');
-      
-      if (!searchText || searchText.trim() === '') {
-        displayAllPoints();
-        container.style.display = 'none';
-        return;
-      }
-
-      const search = searchText.trim();
-      const filtered = allPoints.filter(p => 
-        (p.city && p.city.includes(search)) ||
-        (p.name && p.name.includes(search)) ||
-        (p.code && p.code.includes(search))
-      );
-
-      markersLayer.clearLayers();
-      currentMarkers = {};
-
-      if (filtered.length === 0) {
-        updateStats(0, allPoints.length);
-        container.style.display = 'none';
-        return;
-      }
-
-      const bounds = [];
-      filtered.forEach(point => {
-        if (!point.lat || !point.lng) return;
-        
-        const marker = L.marker([point.lat, point.lng]);
-        marker.bindPopup(createPopupHTML(point));
-
-        markersLayer.addLayer(marker);
-        currentMarkers[point.code] = marker;
-        bounds.push([point.lat, point.lng]);
-      });
-
-      if (bounds.length > 0) {
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
-      }
-
-      updateStats(filtered.length, allPoints.length);
-      displayPointsList(filtered, search);
-    }
-
-    // Update stats
-    function updateStats(shown, total) {
-  const el = document.getElementById('stats');
-
-  if (shown === 0 && total === 0) {
-    el.textContent = 'טוען...';
-  } else if (shown === 0) {
-    el.textContent = 'לא נמצאו נקודות';
-  } else {
-    el.textContent = `נמצאו ${shown.toLocaleString('he-IL')} נקודות`;
-  }
-}
-
-    // Search handler
-    let searchTimeout;
-    document.getElementById('citySearch').addEventListener('input', (e) => {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => filterPoints(e.target.value), 300);
-    });
-
-    // Initialize
-    console.log('Starting initialization...');
-    populateCities();
-    initMap();
-    loadPoints();
-
-  </script>
 </body>
 </html>
