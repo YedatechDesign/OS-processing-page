@@ -185,7 +185,10 @@
   const GOV_API = 'https://data.gov.il/api/3/action/datastore_search';
   const STREETS_RESOURCE = '9ad3862c-8391-4b2f-84a4-2d4c68625f4b';
 
-  let allCities = [];
+  // Store raw city names (with original spaces) mapped to trimmed display names
+  let allCities = [];         // trimmed, for display
+  let cityRawNames = {};      // trimmed -> raw (as in DB)
+  let allRecords = [];        // all raw records from API
   let currentCityStreets = [];
   let selectedCity = '';
   let selectedStreet = '';
@@ -200,70 +203,68 @@
   const statusBar = document.getElementById('statusBar');
 
   // =============================================
-  // LOAD ALL CITIES ON STARTUP
+  // LOAD ALL DATA ON STARTUP
   // =============================================
 
-  async function loadAllCities() {
+  async function loadAllData() {
     try {
       const citySet = new Set();
+      const records = [];
       let offset = 0;
       const limit = 32000;
 
-      // Fetch in batches
       while (true) {
-        const url = `${GOV_API}?resource_id=${STREETS_RESOURCE}&limit=${limit}&fields=שם_ישוב&offset=${offset}`;
+        const url = `${GOV_API}?resource_id=${STREETS_RESOURCE}&limit=${limit}&fields=שם_ישוב,שם_רחוב&offset=${offset}`;
         const res = await fetch(url);
         const data = await res.json();
 
         if (!data.success || data.result.records.length === 0) break;
 
         data.result.records.forEach(r => {
-          const city = (r['שם_ישוב'] || '').trim();
-          if (city) citySet.add(city);
+          const rawCity = r['שם_ישוב'] || '';
+          const rawStreet = r['שם_רחוב'] || '';
+          const trimmedCity = rawCity.trim();
+          const trimmedStreet = rawStreet.trim();
+
+          if (trimmedCity) {
+            citySet.add(trimmedCity);
+            cityRawNames[trimmedCity] = rawCity;
+          }
+
+          if (trimmedCity && trimmedStreet && trimmedStreet !== 'None') {
+            records.push({ city: trimmedCity, street: trimmedStreet });
+          }
         });
 
         if (data.result.records.length < limit) break;
         offset += limit;
       }
 
+      allRecords = records;
       allCities = [...citySet].sort();
       cityInput.disabled = false;
       cityInput.placeholder = 'הקלד שם עיר...';
-      console.log(`Loaded ${allCities.length} cities`);
+      console.log(`Loaded ${allCities.length} cities, ${allRecords.length} records`);
     } catch (err) {
-      console.error('Failed to load cities:', err);
+      console.error('Failed to load data:', err);
       cityInput.placeholder = 'שגיאה בטעינה, נסה לרענן';
     }
   }
 
   // =============================================
-  // LOAD STREETS FOR CITY
+  // GET STREETS FOR CITY (from local data)
   // =============================================
 
-  async function loadStreetsForCity(city) {
-    currentCityStreets = [];
-    try {
-      const filters = JSON.stringify({ 'שם_ישוב': city });
-      const url = `${GOV_API}?resource_id=${STREETS_RESOURCE}&limit=5000&filters=${encodeURIComponent(filters)}`;
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (data.success) {
-        const streetSet = new Set();
-        data.result.records.forEach(r => {
-          const s = (r['שם_רחוב'] || '').trim();
-          if (s && s !== 'None') streetSet.add(s);
-        });
-        currentCityStreets = [...streetSet].sort();
-      }
-      console.log(`Loaded ${currentCityStreets.length} streets for ${city}`);
-    } catch (err) {
-      console.error('Failed to load streets:', err);
-    }
+  function getStreetsForCity(city) {
+    const streetSet = new Set();
+    allRecords.forEach(r => {
+      if (r.city === city) streetSet.add(r.street);
+    });
+    return [...streetSet].sort();
   }
 
   // =============================================
-  // FUZZY MATCH — partial, starts-with, contains
+  // FUZZY MATCH
   // =============================================
 
   function fuzzyMatch(items, query) {
@@ -276,12 +277,10 @@
       else if (item.startsWith(q)) score = 80;
       else if (item.includes(q)) score = 60;
       else {
-        // Remove spaces and compare
         const itemClean = item.replace(/[\s\-]/g, '');
         const qClean = q.replace(/[\s\-]/g, '');
         if (itemClean.includes(qClean)) score = 50;
         else {
-          // Subsequence match for typos
           let matched = 0, pos = 0;
           for (const ch of qClean) {
             const idx = itemClean.indexOf(ch, pos);
@@ -340,7 +339,7 @@
     highlightIndex = -1;
   }
 
-  function navigateSuggestions(container, items, direction) {
+  function navigateSuggestions(container, direction) {
     const els = container.querySelectorAll('.item');
     if (els.length === 0) return;
     els.forEach(el => el.classList.remove('highlighted'));
@@ -351,13 +350,14 @@
   }
 
   // =============================================
-  // CITY INPUT EVENTS
+  // CITY INPUT
   // =============================================
 
   cityInput.addEventListener('input', () => {
     const val = cityInput.value.trim();
     selectedCity = '';
     selectedStreet = '';
+    currentCityStreets = [];
     streetInput.value = '';
     streetInput.disabled = true;
     streetInput.placeholder = 'בחר עיר קודם...';
@@ -381,8 +381,8 @@
 
   cityInput.addEventListener('keydown', (e) => {
     if (!citySuggestions.classList.contains('active')) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); navigateSuggestions(citySuggestions, null, 'down'); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); navigateSuggestions(citySuggestions, null, 'up'); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); navigateSuggestions(citySuggestions, 'down'); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); navigateSuggestions(citySuggestions, 'up'); }
     else if (e.key === 'Enter') {
       e.preventDefault();
       const h = citySuggestions.querySelector('.item.highlighted');
@@ -393,22 +393,25 @@
 
   cityInput.addEventListener('blur', () => setTimeout(() => hideSuggestions(citySuggestions), 200));
 
-  async function selectCity(city) {
+  function selectCity(city) {
     selectedCity = city;
     cityInput.value = city;
     cityInput.classList.add('valid');
     hideSuggestions(citySuggestions);
+
+    // Get streets from already loaded local data
+    currentCityStreets = getStreetsForCity(city);
+    console.log(`Found ${currentCityStreets.length} streets for ${city}`);
+
     streetInput.disabled = false;
-    streetInput.placeholder = 'טוען רחובות...';
-    streetInput.value = '';
-    await loadStreetsForCity(city);
     streetInput.placeholder = currentCityStreets.length > 0 ? 'הקלד שם רחוב...' : 'לא נמצאו רחובות';
+    streetInput.value = '';
     streetInput.focus();
     sendAddress();
   }
 
   // =============================================
-  // STREET INPUT EVENTS
+  // STREET INPUT
   // =============================================
 
   streetInput.addEventListener('input', () => {
@@ -431,8 +434,8 @@
 
   streetInput.addEventListener('keydown', (e) => {
     if (!streetSuggestions.classList.contains('active')) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); navigateSuggestions(streetSuggestions, null, 'down'); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); navigateSuggestions(streetSuggestions, null, 'up'); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); navigateSuggestions(streetSuggestions, 'down'); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); navigateSuggestions(streetSuggestions, 'up'); }
     else if (e.key === 'Enter') {
       e.preventDefault();
       const h = streetSuggestions.querySelector('.item.highlighted');
@@ -490,7 +493,14 @@
 
   window.addEventListener('message', (e) => {
     if (e.data && e.data.type === 'prefill_address') {
-      if (e.data.city) { cityInput.value = e.data.city; selectedCity = e.data.city; cityInput.classList.add('valid'); streetInput.disabled = false; loadStreetsForCity(e.data.city); }
+      if (e.data.city) {
+        cityInput.value = e.data.city;
+        selectedCity = e.data.city;
+        cityInput.classList.add('valid');
+        currentCityStreets = getStreetsForCity(e.data.city);
+        streetInput.disabled = false;
+        streetInput.placeholder = 'הקלד שם רחוב...';
+      }
       if (e.data.street) { streetInput.value = e.data.street; selectedStreet = e.data.street; streetInput.classList.add('valid'); }
       if (e.data.house) houseInput.value = e.data.house;
       if (e.data.apartment) apartmentInput.value = e.data.apartment;
@@ -498,8 +508,8 @@
     }
   });
 
-  // Start loading cities immediately
-  loadAllCities();
+  // Load everything on startup
+  loadAllData();
 </script>
 </body>
 </html>
