@@ -100,7 +100,7 @@
 <body>
   <div class="container">
 <h1>מעבד את ההזמנה שלך</h1>
-<p>אנא המתן, אנחנו מכינים את ההזמנה שלך. התהליך עשוי להמשך עד 30 שניות…</p>
+<p>אנא המתן, אנחנו מכינים את ההזמנה שלך…</p>
 
 
     <div class="spinner"></div>
@@ -128,7 +128,39 @@
           return;
         }
 
-        // 3. Call n8n router
+        // 3. Read address from localStorage (saved by address widget iframe)
+        let address = { city: '', street: '', house: '', apartment: '' };
+
+        try {
+          // For home delivery - take delivery address (user may have edited it)
+          // For other types - take main address
+          const key = deliveryType === 'home' ? 'address_delivery' : 'address_main';
+          const raw = localStorage.getItem(key);
+          
+          // Fallback to main if delivery is empty
+          const fallbackRaw = localStorage.getItem('address_main');
+
+          const addrData = raw ? JSON.parse(raw) : (fallbackRaw ? JSON.parse(fallbackRaw) : null);
+
+          if (addrData) {
+            address = {
+              city: addrData.city || '',
+              street: addrData.street || '',
+              house: addrData.house || '',
+              apartment: addrData.apartment || ''
+            };
+          }
+
+          console.log('Address from localStorage:', address);
+
+          // Clean up after reading
+          localStorage.removeItem('address_main');
+          localStorage.removeItem('address_delivery');
+        } catch (e) {
+          console.warn('Could not read address from localStorage:', e);
+        }
+
+        // 4. Call n8n router (original + address)
         const response = await fetch(
           'https://yedauto.com/webhook/route-order',
           {
@@ -138,7 +170,9 @@
             },
             body: JSON.stringify({
               submission_id: submissionId,
-              delivery_type: deliveryType            })
+              delivery_type: deliveryType,
+              address: address
+            })
           }
         );
 
@@ -153,7 +187,7 @@
         const data = await response.json();
         console.log('n8n response:', data);
 
-        // 4. Redirect
+        // 5. Redirect
         if (data.redirectUrl) {
           window.location.href = data.redirectUrl;
         } else {
