@@ -184,15 +184,17 @@
 <script>
   const GOV_API = 'https://data.gov.il/api/3/action/datastore_search';
   const STREETS_RESOURCE = '9ad3862c-8391-4b2f-84a4-2d4c68625f4b';
+  const INSTANCE = new URLSearchParams(window.location.search).get('instance') || 'default';
 
-  // Store raw city names (with original spaces) mapped to trimmed display names
-  let allCities = [];         // trimmed, for display
-  let cityRawNames = {};      // trimmed -> raw (as in DB)
-  let allRecords = [];        // all raw records from API
+  // trimmedCity → rawCity (as stored in DB, with trailing spaces)
+  let cityRawMap = {};
+  let allCities = [];
   let currentCityStreets = [];
   let selectedCity = '';
   let selectedStreet = '';
   let highlightIndex = -1;
+  let citiesLoaded = false;
+  let alreadyPrefilled = false;
 
   const cityInput = document.getElementById('cityInput');
   const streetInput = document.getElementById('streetInput');
@@ -203,36 +205,102 @@
   const statusBar = document.getElementById('statusBar');
 
   // =============================================
-  // LOAD ALL DATA ON STARTUP
+  // LOCALSTORAGE + BROADCAST
   // =============================================
 
-  async function loadAllData() {
+  function saveToStorage() {
+    const data = {
+      city: selectedCity || cityInput.value.trim(),
+      street: selectedStreet || streetInput.value.trim(),
+      house: houseInput.value.trim(),
+      apartment: apartmentInput.value.trim(),
+      cityValidated: !!selectedCity,
+      streetValidated: !!selectedStreet
+    };
+    try {
+      localStorage.setItem(`address_${INSTANCE}`, JSON.stringify(data));
+      if (INSTANCE === 'main' && channel) {
+        channel.postMessage(data);
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  let channel = null;
+  try { channel = new BroadcastChannel('address_sync'); } catch (e) {}
+
+  if (INSTANCE === 'delivery' && channel) {
+    channel.onmessage = (e) => {
+      if (e.data && e.data.city && !alreadyPrefilled) applyPrefill(e.data);
+    };
+  }
+
+  if (INSTANCE === 'delivery') {
+    let pollCount = 0;
+    const pollInterval = setInterval(() => {
+      pollCount++;
+      if (alreadyPrefilled || pollCount > 60) { clearInterval(pollInterval); return; }
+      try {
+        const raw = localStorage.getItem('address_main');
+        if (raw) {
+          const data = JSON.parse(raw);
+          if (data && data.city) { applyPrefill(data); clearInterval(pollInterval); }
+        }
+      } catch (e) {}
+    }, 500);
+  }
+
+  async function applyPrefill(data) {
+    while (!citiesLoaded) await new Promise(r => setTimeout(r, 200));
+    if (selectedCity && alreadyPrefilled) return;
+    alreadyPrefilled = true;
+
+    cityInput.value = data.city;
+    selectedCity = data.city;
+    cityInput.classList.add('valid');
+
+    streetInput.disabled = false;
+    streetInput.placeholder = 'טוען רחובות...';
+
+    currentCityStreets = await loadStreetsForCity(data.city);
+
+    streetInput.placeholder = 'הקלד שם רחוב...';
+
+    if (data.street) {
+      streetInput.value = data.street;
+      selectedStreet = data.street;
+      streetInput.classList.add('valid');
+    }
+    if (data.house) houseInput.value = data.house;
+    if (data.apartment) apartmentInput.value = data.apartment;
+
+    saveToStorage();
+    updateStatus();
+  }
+
+  // =============================================
+  // LOAD CITIES (light — only unique city names)
+  // =============================================
+
+  async function loadCities() {
     try {
       const citySet = new Set();
-      const records = [];
       let offset = 0;
       const limit = 32000;
 
       while (true) {
-        const url = `${GOV_API}?resource_id=${STREETS_RESOURCE}&limit=${limit}&fields=שם_ישוב,שם_רחוב&offset=${offset}`;
+        const url = `${GOV_API}?resource_id=${STREETS_RESOURCE}&limit=${limit}&fields=שם_ישוב&offset=${offset}`;
         const res = await fetch(url);
         const data = await res.json();
 
         if (!data.success || data.result.records.length === 0) break;
 
         data.result.records.forEach(r => {
-          const rawCity = r['שם_ישוב'] || '';
-          const rawStreet = r['שם_רחוב'] || '';
-          const trimmedCity = rawCity.trim();
-          const trimmedStreet = rawStreet.trim();
-
-          if (trimmedCity) {
-            citySet.add(trimmedCity);
-            cityRawNames[trimmedCity] = rawCity;
-          }
-
-          if (trimmedCity && trimmedStreet && trimmedStreet !== 'None') {
-            records.push({ city: trimmedCity, street: trimmedStreet });
+          const raw = r['שם_ישוב'] || '';
+          const trimmed = raw.trim();
+          if (trimmed) {
+            citySet.add(trimmed);
+            // Store the raw version for API filtering later
+            if (!cityRawMap[trimmed]) cityRawMap[trimmed] = raw;
           }
         });
 
@@ -240,27 +308,68 @@
         offset += limit;
       }
 
-      allRecords = records;
       allCities = [...citySet].sort();
+      citiesLoaded = true;
       cityInput.disabled = false;
       cityInput.placeholder = 'הקלד שם עיר...';
-      console.log(`Loaded ${allCities.length} cities, ${allRecords.length} records`);
+      console.log(`[${INSTANCE}] Loaded ${allCities.length} cities`);
     } catch (err) {
-      console.error('Failed to load data:', err);
+      console.error('Failed to load cities:', err);
       cityInput.placeholder = 'שגיאה בטעינה, נסה לרענן';
     }
   }
 
   // =============================================
-  // GET STREETS FOR CITY (from local data)
+  // LOAD STREETS FOR SELECTED CITY
+  // Uses raw city name + also fetches with q= as fallback
   // =============================================
 
-  function getStreetsForCity(city) {
+  async function loadStreetsForCity(city) {
     const streetSet = new Set();
-    allRecords.forEach(r => {
-      if (r.city === city) streetSet.add(r.street);
-    });
-    return [...streetSet].sort();
+
+    try {
+      // Try with raw name from map
+      const rawName = cityRawMap[city] || city;
+
+      // Method 1: Use filters with raw name
+      const filters = JSON.stringify({ 'שם_ישוב': rawName });
+      const url1 = `${GOV_API}?resource_id=${STREETS_RESOURCE}&limit=5000&fields=שם_רחוב&filters=${encodeURIComponent(filters)}`;
+      
+      const res1 = await fetch(url1);
+      const data1 = await res1.json();
+
+      if (data1.success && data1.result.records.length > 0) {
+        data1.result.records.forEach(r => {
+          const s = (r['שם_רחוב'] || '').trim();
+          if (s && s !== 'None') streetSet.add(s);
+        });
+      }
+
+      // Method 2: If no results, try with q= search and filter client-side
+      if (streetSet.size === 0) {
+        const url2 = `${GOV_API}?resource_id=${STREETS_RESOURCE}&limit=5000&q=${encodeURIComponent(city)}`;
+        const res2 = await fetch(url2);
+        const data2 = await res2.json();
+
+        if (data2.success) {
+          data2.result.records.forEach(r => {
+            const recCity = (r['שם_ישוב'] || '').trim();
+            const recStreet = (r['שם_רחוב'] || '').trim();
+            // Client-side filter: city must match
+            if (recCity === city && recStreet && recStreet !== 'None') {
+              streetSet.add(recStreet);
+            }
+          });
+        }
+      }
+
+      console.log(`[${INSTANCE}] Loaded ${streetSet.size} streets for "${city}"`);
+    } catch (err) {
+      console.error('Failed to load streets:', err);
+    }
+
+    currentCityStreets = [...streetSet].sort();
+    return currentCityStreets;
   }
 
   // =============================================
@@ -349,6 +458,16 @@
     els[highlightIndex].scrollIntoView({ block: 'nearest' });
   }
 
+  function updateStatus() {
+    const data = getAddressData();
+    if (data.isValid) {
+      statusBar.className = 'status-bar success';
+      statusBar.textContent = `✓ ${data.city}, ${data.street} ${data.house}${data.apartment ? ' דירה ' + data.apartment : ''}`;
+    } else {
+      statusBar.className = 'status-bar';
+    }
+  }
+
   // =============================================
   // CITY INPUT
   // =============================================
@@ -364,11 +483,12 @@
     cityInput.classList.remove('valid');
     streetInput.classList.remove('valid');
 
-    if (val.length < 1) { hideSuggestions(citySuggestions); sendAddress(); return; }
+    if (val.length < 1) { hideSuggestions(citySuggestions); saveToStorage(); updateStatus(); return; }
 
     const matches = fuzzyMatch(allCities, val);
     showSuggestions(citySuggestions, matches, val, selectCity);
-    sendAddress();
+    saveToStorage();
+    updateStatus();
   });
 
   cityInput.addEventListener('focus', () => {
@@ -393,21 +513,22 @@
 
   cityInput.addEventListener('blur', () => setTimeout(() => hideSuggestions(citySuggestions), 200));
 
-  function selectCity(city) {
+  async function selectCity(city) {
     selectedCity = city;
     cityInput.value = city;
     cityInput.classList.add('valid');
     hideSuggestions(citySuggestions);
 
-    // Get streets from already loaded local data
-    currentCityStreets = getStreetsForCity(city);
-    console.log(`Found ${currentCityStreets.length} streets for ${city}`);
-
     streetInput.disabled = false;
-    streetInput.placeholder = currentCityStreets.length > 0 ? 'הקלד שם רחוב...' : 'לא נמצאו רחובות';
+    streetInput.placeholder = 'טוען רחובות...';
     streetInput.value = '';
+
+    await loadStreetsForCity(city);
+
+    streetInput.placeholder = currentCityStreets.length > 0 ? 'הקלד שם רחוב...' : 'לא נמצאו רחובות';
     streetInput.focus();
-    sendAddress();
+    saveToStorage();
+    updateStatus();
   }
 
   // =============================================
@@ -421,7 +542,8 @@
     if (!selectedCity || currentCityStreets.length === 0) return;
     const matches = fuzzyMatch(currentCityStreets, val);
     showSuggestions(streetSuggestions, matches, val, selectStreet);
-    sendAddress();
+    saveToStorage();
+    updateStatus();
   });
 
   streetInput.addEventListener('focus', () => {
@@ -452,24 +574,24 @@
     streetInput.classList.add('valid');
     hideSuggestions(streetSuggestions);
     houseInput.focus();
-    sendAddress();
+    saveToStorage();
+    updateStatus();
   }
 
   // =============================================
   // HOUSE & APARTMENT
   // =============================================
-  houseInput.addEventListener('input', () => sendAddress());
-  apartmentInput.addEventListener('input', () => sendAddress());
+  houseInput.addEventListener('input', () => { saveToStorage(); updateStatus(); });
+  apartmentInput.addEventListener('input', () => { saveToStorage(); updateStatus(); });
 
   // =============================================
-  // SEND TO PARENT
+  // DATA GETTER
   // =============================================
 
   function getAddressData() {
-    const instance = new URLSearchParams(window.location.search).get('instance') || 'default';
     return {
       type: 'address_update',
-      instance,
+      instance: INSTANCE,
       city: selectedCity || cityInput.value.trim(),
       street: selectedStreet || streetInput.value.trim(),
       house: houseInput.value.trim(),
@@ -480,36 +602,8 @@
     };
   }
 
-  function sendAddress() {
-    const data = getAddressData();
-    if (window.parent !== window) window.parent.postMessage(data, '*');
-    if (data.isValid) {
-      statusBar.className = 'status-bar success';
-      statusBar.textContent = `✓ ${data.city}, ${data.street} ${data.house}${data.apartment ? ' דירה ' + data.apartment : ''}`;
-    } else {
-      statusBar.className = 'status-bar';
-    }
-  }
-
-  window.addEventListener('message', (e) => {
-    if (e.data && e.data.type === 'prefill_address') {
-      if (e.data.city) {
-        cityInput.value = e.data.city;
-        selectedCity = e.data.city;
-        cityInput.classList.add('valid');
-        currentCityStreets = getStreetsForCity(e.data.city);
-        streetInput.disabled = false;
-        streetInput.placeholder = 'הקלד שם רחוב...';
-      }
-      if (e.data.street) { streetInput.value = e.data.street; selectedStreet = e.data.street; streetInput.classList.add('valid'); }
-      if (e.data.house) houseInput.value = e.data.house;
-      if (e.data.apartment) apartmentInput.value = e.data.apartment;
-      sendAddress();
-    }
-  });
-
-  // Load everything on startup
-  loadAllData();
+  // Start
+  loadCities();
 </script>
 </body>
 </html>
