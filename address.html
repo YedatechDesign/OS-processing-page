@@ -61,11 +61,6 @@
       background: #f0fff4;
     }
 
-    .field-group input.invalid {
-      border-color: #e63946;
-      background: #fff5f5;
-    }
-
     .field-group input::placeholder {
       color: #a0a0b0;
       font-weight: 300;
@@ -76,15 +71,9 @@
       gap: 10px;
     }
 
-    .row .field-group {
-      flex: 1;
-    }
+    .row .field-group { flex: 1; }
+    .row .field-group.small { flex: 0 0 100px; }
 
-    .row .field-group.small {
-      flex: 0 0 100px;
-    }
-
-    /* Autocomplete dropdown */
     .suggestions {
       position: absolute;
       top: 100%;
@@ -101,9 +90,7 @@
       box-shadow: 0 8px 24px rgba(0,0,0,0.12);
     }
 
-    .suggestions.active {
-      display: block;
-    }
+    .suggestions.active { display: block; }
 
     .suggestions .item {
       padding: 10px 14px;
@@ -119,8 +106,11 @@
       background: #eef4ff;
     }
 
-    .suggestions .item:last-child {
-      border-bottom: none;
+    .suggestions .item:last-child { border-bottom: none; }
+
+    .suggestions .item .match {
+      font-weight: 700;
+      color: #0a59eb;
     }
 
     .suggestions .no-results {
@@ -137,7 +127,6 @@
       text-align: center;
     }
 
-    /* Status bar */
     .status-bar {
       margin-top: 10px;
       padding: 8px 12px;
@@ -153,14 +142,6 @@
       border: 1px solid #b7e4c7;
     }
 
-    .status-bar.error {
-      display: block;
-      background: #fff5f5;
-      color: #c1121f;
-      border: 1px solid #f4a4a4;
-    }
-
-    /* Scrollbar */
     .suggestions::-webkit-scrollbar { width: 6px; }
     .suggestions::-webkit-scrollbar-track { background: transparent; }
     .suggestions::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
@@ -174,50 +155,26 @@
 <body>
 
 <div class="address-widget" id="addressWidget">
-  <!-- City -->
   <div class="field-group">
     <label><span class="required">*</span> עיר / יישוב</label>
-    <input
-      type="text"
-      id="cityInput"
-      placeholder="הקלד שם עיר..."
-      autocomplete="off"
-    />
+    <input type="text" id="cityInput" placeholder="טוען ערים..." autocomplete="off" disabled />
     <div class="suggestions" id="citySuggestions"></div>
   </div>
 
-  <!-- Street -->
   <div class="field-group">
     <label><span class="required">*</span> רחוב</label>
-    <input
-      type="text"
-      id="streetInput"
-      placeholder="בחר עיר קודם..."
-      autocomplete="off"
-      disabled
-    />
+    <input type="text" id="streetInput" placeholder="בחר עיר קודם..." autocomplete="off" disabled />
     <div class="suggestions" id="streetSuggestions"></div>
   </div>
 
-  <!-- House + Apartment row -->
   <div class="row">
     <div class="field-group">
       <label><span class="required">*</span> מספר בית</label>
-      <input
-        type="text"
-        id="houseInput"
-        placeholder="מספר בית"
-        autocomplete="off"
-      />
+      <input type="text" id="houseInput" placeholder="מספר בית" autocomplete="off" />
     </div>
     <div class="field-group small">
       <label>דירה</label>
-      <input
-        type="text"
-        id="apartmentInput"
-        placeholder="דירה"
-        autocomplete="off"
-      />
+      <input type="text" id="apartmentInput" placeholder="דירה" autocomplete="off" />
     </div>
   </div>
 
@@ -225,21 +182,15 @@
 </div>
 
 <script>
-  // =============================================
-  // CONFIG
-  // =============================================
   const GOV_API = 'https://data.gov.il/api/3/action/datastore_search';
   const STREETS_RESOURCE = '9ad3862c-8391-4b2f-84a4-2d4c68625f4b';
 
-  // State
+  let allCities = [];
+  let currentCityStreets = [];
   let selectedCity = '';
   let selectedStreet = '';
-  let cityCache = {};
-  let streetCache = {};
-  let debounceTimer = null;
   let highlightIndex = -1;
 
-  // Elements
   const cityInput = document.getElementById('cityInput');
   const streetInput = document.getElementById('streetInput');
   const houseInput = document.getElementById('houseInput');
@@ -249,92 +200,136 @@
   const statusBar = document.getElementById('statusBar');
 
   // =============================================
-  // GOV.IL API
+  // LOAD ALL CITIES ON STARTUP
   // =============================================
 
-  async function searchCities(query) {
-    if (!query || query.length < 2) return [];
-    
-    const cacheKey = query.trim();
-    if (cityCache[cacheKey]) return cityCache[cacheKey];
-
+  async function loadAllCities() {
     try {
-      const url = `${GOV_API}?resource_id=${STREETS_RESOURCE}&limit=500&fields=שם_ישוב&q=${encodeURIComponent(query)}`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const citySet = new Set();
+      let offset = 0;
+      const limit = 32000;
 
-      if (!data.success) return [];
+      // Fetch in batches
+      while (true) {
+        const url = `${GOV_API}?resource_id=${STREETS_RESOURCE}&limit=${limit}&fields=שם_ישוב&offset=${offset}`;
+        const res = await fetch(url);
+        const data = await res.json();
 
-      // Extract unique city names
-      const cities = [...new Set(
-        data.result.records
-          .map(r => (r['שם_ישוב'] || '').trim())
-          .filter(Boolean)
-      )].sort();
+        if (!data.success || data.result.records.length === 0) break;
 
-      cityCache[cacheKey] = cities;
-      return cities;
-    } catch (err) {
-      console.error('City search error:', err);
-      return [];
-    }
-  }
+        data.result.records.forEach(r => {
+          const city = (r['שם_ישוב'] || '').trim();
+          if (city) citySet.add(city);
+        });
 
-  async function searchStreets(city, query) {
-    if (!city) return [];
-
-    const cacheKey = `${city}__${(query || '').trim()}`;
-    if (streetCache[cacheKey]) return streetCache[cacheKey];
-
-    try {
-      const filters = JSON.stringify({ 'שם_ישוב': city });
-      let url = `${GOV_API}?resource_id=${STREETS_RESOURCE}&limit=1000&fields=שם_רחוב&filters=${encodeURIComponent(filters)}`;
-      if (query && query.length >= 1) {
-        url += `&q=${encodeURIComponent(query)}`;
+        if (data.result.records.length < limit) break;
+        offset += limit;
       }
 
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (!data.success) return [];
-
-      const streets = [...new Set(
-        data.result.records
-          .map(r => (r['שם_רחוב'] || '').trim())
-          .filter(Boolean)
-          .filter(s => s !== 'None' && s !== '')
-      )].sort();
-
-      streetCache[cacheKey] = streets;
-      return streets;
+      allCities = [...citySet].sort();
+      cityInput.disabled = false;
+      cityInput.placeholder = 'הקלד שם עיר...';
+      console.log(`Loaded ${allCities.length} cities`);
     } catch (err) {
-      console.error('Street search error:', err);
-      return [];
+      console.error('Failed to load cities:', err);
+      cityInput.placeholder = 'שגיאה בטעינה, נסה לרענן';
     }
   }
 
   // =============================================
-  // UI HELPERS
+  // LOAD STREETS FOR CITY
   // =============================================
 
-  function showSuggestions(container, items, onSelect) {
+  async function loadStreetsForCity(city) {
+    currentCityStreets = [];
+    try {
+      const filters = JSON.stringify({ 'שם_ישוב': city });
+      const url = `${GOV_API}?resource_id=${STREETS_RESOURCE}&limit=5000&filters=${encodeURIComponent(filters)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.success) {
+        const streetSet = new Set();
+        data.result.records.forEach(r => {
+          const s = (r['שם_רחוב'] || '').trim();
+          if (s && s !== 'None') streetSet.add(s);
+        });
+        currentCityStreets = [...streetSet].sort();
+      }
+      console.log(`Loaded ${currentCityStreets.length} streets for ${city}`);
+    } catch (err) {
+      console.error('Failed to load streets:', err);
+    }
+  }
+
+  // =============================================
+  // FUZZY MATCH — partial, starts-with, contains
+  // =============================================
+
+  function fuzzyMatch(items, query) {
+    if (!query || query.length === 0) return items.slice(0, 50);
+    const q = query.trim();
+
+    const scored = items.map(item => {
+      let score = 0;
+      if (item === q) score = 100;
+      else if (item.startsWith(q)) score = 80;
+      else if (item.includes(q)) score = 60;
+      else {
+        // Remove spaces and compare
+        const itemClean = item.replace(/[\s\-]/g, '');
+        const qClean = q.replace(/[\s\-]/g, '');
+        if (itemClean.includes(qClean)) score = 50;
+        else {
+          // Subsequence match for typos
+          let matched = 0, pos = 0;
+          for (const ch of qClean) {
+            const idx = itemClean.indexOf(ch, pos);
+            if (idx >= 0) { matched++; pos = idx + 1; }
+          }
+          if (qClean.length > 0 && matched / qClean.length >= 0.7) {
+            score = Math.round((matched / qClean.length) * 40);
+          }
+        }
+      }
+      return { item, score };
+    });
+
+    return scored
+      .filter(s => s.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 30)
+      .map(s => s.item);
+  }
+
+  function highlightMatch(text, query) {
+    if (!query) return text;
+    const idx = text.indexOf(query);
+    if (idx === -1) return text;
+    return text.substring(0, idx)
+      + '<span class="match">' + text.substring(idx, idx + query.length) + '</span>'
+      + text.substring(idx + query.length);
+  }
+
+  // =============================================
+  // UI
+  // =============================================
+
+  function showSuggestions(container, items, query, onSelect) {
     highlightIndex = -1;
-    
     if (!items || items.length === 0) {
       container.innerHTML = '<div class="no-results">לא נמצאו תוצאות</div>';
       container.classList.add('active');
       return;
     }
-
     container.innerHTML = items
-      .map((item, i) => `<div class="item" data-index="${i}">${item}</div>`)
+      .map((item, i) => `<div class="item" data-index="${i}">${highlightMatch(item, query)}</div>`)
       .join('');
     container.classList.add('active');
-
-    container.querySelectorAll('.item').forEach(el => {
+    container.querySelectorAll('.item').forEach((el, i) => {
       el.addEventListener('mousedown', (e) => {
         e.preventDefault();
-        onSelect(el.textContent);
+        onSelect(items[i]);
       });
     });
   }
@@ -345,35 +340,18 @@
     highlightIndex = -1;
   }
 
-  function showLoading(container) {
-    container.innerHTML = '<div class="loading">מחפש...</div>';
-    container.classList.add('active');
-  }
-
-  function navigateSuggestions(container, direction) {
-    const items = container.querySelectorAll('.item');
-    if (items.length === 0) return null;
-
-    items.forEach(el => el.classList.remove('highlighted'));
-
-    if (direction === 'down') {
-      highlightIndex = (highlightIndex + 1) % items.length;
-    } else {
-      highlightIndex = highlightIndex <= 0 ? items.length - 1 : highlightIndex - 1;
-    }
-
-    items[highlightIndex].classList.add('highlighted');
-    items[highlightIndex].scrollIntoView({ block: 'nearest' });
-    return items[highlightIndex].textContent;
-  }
-
-  function debounce(fn, delay = 250) {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(fn, delay);
+  function navigateSuggestions(container, items, direction) {
+    const els = container.querySelectorAll('.item');
+    if (els.length === 0) return;
+    els.forEach(el => el.classList.remove('highlighted'));
+    if (direction === 'down') highlightIndex = (highlightIndex + 1) % els.length;
+    else highlightIndex = highlightIndex <= 0 ? els.length - 1 : highlightIndex - 1;
+    els[highlightIndex].classList.add('highlighted');
+    els[highlightIndex].scrollIntoView({ block: 'nearest' });
   }
 
   // =============================================
-  // CITY INPUT
+  // CITY INPUT EVENTS
   // =============================================
 
   cityInput.addEventListener('input', () => {
@@ -383,122 +361,87 @@
     streetInput.value = '';
     streetInput.disabled = true;
     streetInput.placeholder = 'בחר עיר קודם...';
-    cityInput.classList.remove('valid', 'invalid');
-    streetInput.classList.remove('valid', 'invalid');
+    cityInput.classList.remove('valid');
+    streetInput.classList.remove('valid');
 
-    if (val.length < 2) {
-      hideSuggestions(citySuggestions);
-      sendAddress();
-      return;
+    if (val.length < 1) { hideSuggestions(citySuggestions); sendAddress(); return; }
+
+    const matches = fuzzyMatch(allCities, val);
+    showSuggestions(citySuggestions, matches, val, selectCity);
+    sendAddress();
+  });
+
+  cityInput.addEventListener('focus', () => {
+    const val = cityInput.value.trim();
+    if (val.length >= 1 && allCities.length > 0) {
+      const matches = fuzzyMatch(allCities, val);
+      showSuggestions(citySuggestions, matches, val, selectCity);
     }
-
-    showLoading(citySuggestions);
-
-    debounce(async () => {
-      const cities = await searchCities(val);
-      const filtered = cities.filter(c =>
-        c.includes(val) || c.startsWith(val)
-      );
-      showSuggestions(citySuggestions, filtered, selectCity);
-    }, 300);
   });
 
   cityInput.addEventListener('keydown', (e) => {
     if (!citySuggestions.classList.contains('active')) return;
-    
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'ArrowDown') { e.preventDefault(); navigateSuggestions(citySuggestions, null, 'down'); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); navigateSuggestions(citySuggestions, null, 'up'); }
+    else if (e.key === 'Enter') {
       e.preventDefault();
-      navigateSuggestions(citySuggestions, 'down');
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      navigateSuggestions(citySuggestions, 'up');
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      const highlighted = citySuggestions.querySelector('.item.highlighted');
-      if (highlighted) {
-        selectCity(highlighted.textContent);
-      }
-    } else if (e.key === 'Escape') {
-      hideSuggestions(citySuggestions);
+      const h = citySuggestions.querySelector('.item.highlighted');
+      if (h) { const i = parseInt(h.dataset.index); const m = fuzzyMatch(allCities, cityInput.value.trim()); selectCity(m[i]); }
     }
+    else if (e.key === 'Escape') hideSuggestions(citySuggestions);
   });
 
-  cityInput.addEventListener('blur', () => {
-    setTimeout(() => hideSuggestions(citySuggestions), 200);
-  });
+  cityInput.addEventListener('blur', () => setTimeout(() => hideSuggestions(citySuggestions), 200));
 
-  function selectCity(city) {
+  async function selectCity(city) {
     selectedCity = city;
     cityInput.value = city;
     cityInput.classList.add('valid');
     hideSuggestions(citySuggestions);
-
-    // Enable street
     streetInput.disabled = false;
-    streetInput.placeholder = 'הקלד שם רחוב...';
+    streetInput.placeholder = 'טוען רחובות...';
     streetInput.value = '';
+    await loadStreetsForCity(city);
+    streetInput.placeholder = currentCityStreets.length > 0 ? 'הקלד שם רחוב...' : 'לא נמצאו רחובות';
     streetInput.focus();
-
-    // Preload streets
-    searchStreets(city, '');
     sendAddress();
   }
 
   // =============================================
-  // STREET INPUT
+  // STREET INPUT EVENTS
   // =============================================
 
   streetInput.addEventListener('input', () => {
     const val = streetInput.value.trim();
     selectedStreet = '';
-    streetInput.classList.remove('valid', 'invalid');
-
-    if (!selectedCity) return;
-
-    showLoading(streetSuggestions);
-
-    debounce(async () => {
-      const streets = await searchStreets(selectedCity, val);
-      const filtered = val.length > 0
-        ? streets.filter(s => s.includes(val) || s.startsWith(val))
-        : streets;
-      showSuggestions(streetSuggestions, filtered, selectStreet);
-    }, 300);
+    streetInput.classList.remove('valid');
+    if (!selectedCity || currentCityStreets.length === 0) return;
+    const matches = fuzzyMatch(currentCityStreets, val);
+    showSuggestions(streetSuggestions, matches, val, selectStreet);
+    sendAddress();
   });
 
   streetInput.addEventListener('focus', () => {
-    if (selectedCity && !streetInput.value) {
-      showLoading(streetSuggestions);
-      debounce(async () => {
-        const streets = await searchStreets(selectedCity, '');
-        showSuggestions(streetSuggestions, streets, selectStreet);
-      }, 200);
+    if (selectedCity && currentCityStreets.length > 0) {
+      const val = streetInput.value.trim();
+      const matches = fuzzyMatch(currentCityStreets, val);
+      showSuggestions(streetSuggestions, matches, val, selectStreet);
     }
   });
 
   streetInput.addEventListener('keydown', (e) => {
     if (!streetSuggestions.classList.contains('active')) return;
-
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'ArrowDown') { e.preventDefault(); navigateSuggestions(streetSuggestions, null, 'down'); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); navigateSuggestions(streetSuggestions, null, 'up'); }
+    else if (e.key === 'Enter') {
       e.preventDefault();
-      navigateSuggestions(streetSuggestions, 'down');
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      navigateSuggestions(streetSuggestions, 'up');
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      const highlighted = streetSuggestions.querySelector('.item.highlighted');
-      if (highlighted) {
-        selectStreet(highlighted.textContent);
-      }
-    } else if (e.key === 'Escape') {
-      hideSuggestions(streetSuggestions);
+      const h = streetSuggestions.querySelector('.item.highlighted');
+      if (h) { const i = parseInt(h.dataset.index); const m = fuzzyMatch(currentCityStreets, streetInput.value.trim()); selectStreet(m[i]); }
     }
+    else if (e.key === 'Escape') hideSuggestions(streetSuggestions);
   });
 
-  streetInput.addEventListener('blur', () => {
-    setTimeout(() => hideSuggestions(streetSuggestions), 200);
-  });
+  streetInput.addEventListener('blur', () => setTimeout(() => hideSuggestions(streetSuggestions), 200));
 
   function selectStreet(street) {
     selectedStreet = street;
@@ -512,17 +455,18 @@
   // =============================================
   // HOUSE & APARTMENT
   // =============================================
-
   houseInput.addEventListener('input', () => sendAddress());
   apartmentInput.addEventListener('input', () => sendAddress());
 
   // =============================================
-  // SEND DATA TO PARENT
+  // SEND TO PARENT
   // =============================================
 
   function getAddressData() {
+    const instance = new URLSearchParams(window.location.search).get('instance') || 'default';
     return {
       type: 'address_update',
+      instance,
       city: selectedCity || cityInput.value.trim(),
       street: selectedStreet || streetInput.value.trim(),
       house: houseInput.value.trim(),
@@ -535,13 +479,7 @@
 
   function sendAddress() {
     const data = getAddressData();
-
-    // Send to parent window (for iframe embed)
-    if (window.parent !== window) {
-      window.parent.postMessage(data, '*');
-    }
-
-    // Update status
+    if (window.parent !== window) window.parent.postMessage(data, '*');
     if (data.isValid) {
       statusBar.className = 'status-bar success';
       statusBar.textContent = `✓ ${data.city}, ${data.street} ${data.house}${data.apartment ? ' דירה ' + data.apartment : ''}`;
@@ -550,42 +488,18 @@
     }
   }
 
-  // =============================================
-  // RECEIVE CONFIG FROM PARENT
-  // =============================================
-
   window.addEventListener('message', (e) => {
     if (e.data && e.data.type === 'prefill_address') {
-      if (e.data.city) {
-        cityInput.value = e.data.city;
-        selectedCity = e.data.city;
-        cityInput.classList.add('valid');
-        streetInput.disabled = false;
-        streetInput.placeholder = 'הקלד שם רחוב...';
-      }
-      if (e.data.street) {
-        streetInput.value = e.data.street;
-        selectedStreet = e.data.street;
-        streetInput.classList.add('valid');
-      }
+      if (e.data.city) { cityInput.value = e.data.city; selectedCity = e.data.city; cityInput.classList.add('valid'); streetInput.disabled = false; loadStreetsForCity(e.data.city); }
+      if (e.data.street) { streetInput.value = e.data.street; selectedStreet = e.data.street; streetInput.classList.add('valid'); }
       if (e.data.house) houseInput.value = e.data.house;
       if (e.data.apartment) apartmentInput.value = e.data.apartment;
       sendAddress();
     }
   });
 
-  // =============================================
-  // URL PARAMS (for standalone usage)
-  // =============================================
-
-  (function initFromURL() {
-    const params = new URLSearchParams(window.location.search);
-    const instanceId = params.get('instance') || 'default';
-    
-    // Store instance ID for differentiation
-    document.getElementById('addressWidget').dataset.instance = instanceId;
-  })();
+  // Start loading cities immediately
+  loadAllCities();
 </script>
-
 </body>
 </html>
