@@ -6,165 +6,59 @@
   <title>כתובת למשלוח</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap');
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      font-family: 'Heebo', sans-serif;
-      background: transparent;
-      direction: rtl;
-    }
-
-    .address-widget {
-      max-width: 100%;
-      padding: 8px 4px;
-    }
-
-    .field-group {
-      margin-bottom: 14px;
-      position: relative;
-    }
-
-    .field-group label {
-      display: block;
-      font-size: 14px;
-      font-weight: 500;
-      color: #1a1a2e;
-      margin-bottom: 5px;
-    }
-
-    .field-group label .required {
-      color: #e63946;
-      margin-right: 2px;
-    }
-
+    body { font-family: 'Heebo', sans-serif; background: transparent; direction: rtl; }
+    .address-widget { max-width: 100%; padding: 8px 4px; }
+    .field-group { margin-bottom: 14px; position: relative; }
+    .field-group label { display: block; font-size: 14px; font-weight: 500; color: #1a1a2e; margin-bottom: 5px; }
+    .field-group label .required { color: #e63946; margin-right: 2px; }
     .field-group input {
-      width: 100%;
-      padding: 10px 14px;
-      border: 1.5px solid #d0d5dd;
-      border-radius: 8px;
-      font-size: 15px;
-      font-family: 'Heebo', sans-serif;
-      color: #1a1a2e;
-      background: #fff;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      outline: none;
+      width: 100%; padding: 10px 14px; border: 1.5px solid #d0d5dd; border-radius: 8px;
+      font-size: 15px; font-family: 'Heebo', sans-serif; color: #1a1a2e; background: #fff;
+      transition: border-color 0.2s, box-shadow 0.2s; outline: none;
     }
-
-    .field-group input:focus {
-      border-color: #0a59eb;
-      box-shadow: 0 0 0 3px rgba(10, 89, 235, 0.1);
-    }
-
-    .field-group input.valid {
-      border-color: #2ecc71;
-      background: #f0fff4;
-    }
-
-    .field-group input::placeholder {
-      color: #a0a0b0;
-      font-weight: 300;
-    }
-
-    .row {
-      display: flex;
-      gap: 10px;
-    }
-
+    .field-group input:focus { border-color: #0a59eb; box-shadow: 0 0 0 3px rgba(10, 89, 235, 0.1); }
+    .field-group input.valid { border-color: #2ecc71; background: #f0fff4; }
+    .field-group input::placeholder { color: #a0a0b0; font-weight: 300; }
+    .row { display: flex; gap: 10px; }
     .row .field-group { flex: 1; }
     .row .field-group.small { flex: 0 0 100px; }
-
     .suggestions {
-      position: absolute;
-      top: 100%;
-      right: 0;
-      left: 0;
-      background: #fff;
-      border: 1.5px solid #d0d5dd;
-      border-top: none;
-      border-radius: 0 0 8px 8px;
-      max-height: 200px;
-      overflow-y: auto;
-      z-index: 1000;
-      display: none;
+      position: absolute; top: 100%; right: 0; left: 0; background: #fff;
+      border: 1.5px solid #d0d5dd; border-top: none; border-radius: 0 0 8px 8px;
+      max-height: 200px; overflow-y: auto; z-index: 1000; display: none;
       box-shadow: 0 8px 24px rgba(0,0,0,0.12);
     }
-
     .suggestions.active { display: block; }
-
     .suggestions .item {
-      padding: 10px 14px;
-      cursor: pointer;
-      font-size: 14px;
-      color: #1a1a2e;
-      border-bottom: 1px solid #f0f0f0;
-      transition: background 0.15s;
+      padding: 10px 14px; cursor: pointer; font-size: 14px; color: #1a1a2e;
+      border-bottom: 1px solid #f0f0f0; transition: background 0.15s;
     }
-
-    .suggestions .item:hover,
-    .suggestions .item.highlighted { background: #eef4ff; }
-
+    .suggestions .item:hover, .suggestions .item.highlighted { background: #eef4ff; }
     .suggestions .item:last-child { border-bottom: none; }
-
-    .suggestions .item .match {
-      font-weight: 700;
-      color: #0a59eb;
-    }
-
-    .suggestions .no-results {
-      padding: 12px 14px;
-      color: #999;
-      font-size: 13px;
-      text-align: center;
-    }
-
-    .status-bar {
-      margin-top: 10px;
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 13px;
-      display: none;
-    }
-
-    .status-bar.success {
-      display: block;
-      background: #f0fff4;
-      color: #2d6a4f;
-      border: 1px solid #b7e4c7;
-    }
-
-    .status-bar.loading-status {
-      display: block;
-      background: #fff8e1;
-      color: #8d6e00;
-      border: 1px solid #ffe082;
-    }
-
+    .suggestions .item .match { font-weight: 700; color: #0a59eb; }
+    .suggestions .no-results { padding: 12px 14px; color: #999; font-size: 13px; text-align: center; }
+    .status-bar { margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 13px; display: none; }
+    .status-bar.success { display: block; background: #f0fff4; color: #2d6a4f; border: 1px solid #b7e4c7; }
+    .status-bar.loading-status { display: block; background: #fff8e1; color: #8d6e00; border: 1px solid #ffe082; }
     .suggestions::-webkit-scrollbar { width: 6px; }
     .suggestions::-webkit-scrollbar-track { background: transparent; }
     .suggestions::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
-
-    @media (max-width: 400px) {
-      .row { flex-direction: column; gap: 0; }
-      .row .field-group.small { flex: 1; }
-    }
+    @media (max-width: 400px) { .row { flex-direction: column; gap: 0; } .row .field-group.small { flex: 1; } }
   </style>
 </head>
 <body>
-
 <div class="address-widget" id="addressWidget">
   <div class="field-group">
     <label><span class="required">*</span> עיר / יישוב</label>
     <input type="text" id="cityInput" placeholder="טוען ערים..." autocomplete="off" disabled />
     <div class="suggestions" id="citySuggestions"></div>
   </div>
-
   <div class="field-group">
     <label><span class="required">*</span> רחוב</label>
     <input type="text" id="streetInput" placeholder="בחר עיר קודם..." autocomplete="off" disabled />
     <div class="suggestions" id="streetSuggestions"></div>
   </div>
-
   <div class="row">
     <div class="field-group">
       <label><span class="required">*</span> מספר בית</label>
@@ -175,7 +69,6 @@
       <input type="text" id="apartmentInput" placeholder="דירה" autocomplete="off" />
     </div>
   </div>
-
   <div class="status-bar" id="statusBar"></div>
 </div>
 
@@ -192,6 +85,7 @@
   var selectedStreet = '';
   var highlightIndex = -1;
   var dataLoaded = false;
+  var lastSavedHash = '';
   var saveTimer = null;
 
   var cityInput = document.getElementById('cityInput');
@@ -203,35 +97,41 @@
   var statusBar = document.getElementById('statusBar');
 
   // =============================================
-  // SAVE ADDRESS TO N8N (instead of localStorage)
+  // SAVE TO N8N — only when address is valid and changed
   // =============================================
 
-  function saveAddress() {
-    var city = selectedCity || cityInput.value.trim();
-    var street = selectedStreet || streetInput.value.trim();
-    var house = houseInput.value.trim();
-    var apartment = apartmentInput.value.trim();
+  function trySaveAddress() {
+    // Only save if city AND street are validated (selected from list) AND house is filled
+    if (!selectedCity || !selectedStreet || !houseInput.value.trim()) return;
 
-    // Only save if we have at least city
-    if (!city) return;
+    var data = {
+      instance: INSTANCE,
+      city: selectedCity,
+      street: selectedStreet,
+      house: houseInput.value.trim(),
+      apartment: apartmentInput.value.trim()
+    };
 
-    // Debounce — don't spam webhook
+    // Don't save if nothing changed
+    var hash = JSON.stringify(data);
+    if (hash === lastSavedHash) return;
+
+    // Debounce 2 seconds
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function() {
+      lastSavedHash = hash;
+      console.log('[' + INSTANCE + '] Saving address:', data);
       fetch(SAVE_WEBHOOK, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instance: INSTANCE,
-          city: city,
-          street: street,
-          house: house,
-          apartment: apartment
-        })
+        body: JSON.stringify(data)
+      }).then(function() {
+        console.log('[' + INSTANCE + '] Address saved');
       }).catch(function(e) {
-        console.warn('Save address failed:', e);
+        console.warn('Save failed:', e);
+        lastSavedHash = ''; // Allow retry
       });
-    }, 800);
+    }, 2000);
   }
 
   // =============================================
@@ -245,10 +145,7 @@
         var res = await fetch(url);
         if (res.ok) return res;
       } catch (e) {
-        console.warn('Fetch attempt ' + (i + 1) + ' failed:', e.message);
-        if (i < retries - 1) {
-          await new Promise(function(r) { setTimeout(r, 1000 * (i + 1)); });
-        }
+        if (i < retries - 1) await new Promise(function(r) { setTimeout(r, 1000 * (i + 1)); });
       }
     }
     throw new Error('Failed after ' + retries + ' attempts');
@@ -261,64 +158,48 @@
   async function loadAllData() {
     statusBar.className = 'status-bar loading-status';
     statusBar.textContent = 'טוען נתוני כתובות...';
-
     try {
       var citySet = new Set();
       var records = [];
       var offset = 0;
       var limit = 10000;
-
       while (true) {
-        var url = GOV_API
-          + '?resource_id=' + STREETS_RESOURCE
-          + '&limit=' + limit
-          + '&fields=שם_ישוב,שם_רחוב'
-          + '&offset=' + offset;
-
+        var url = GOV_API + '?resource_id=' + STREETS_RESOURCE + '&limit=' + limit + '&fields=שם_ישוב,שם_רחוב&offset=' + offset;
         var res = await fetchWithRetry(url, 3);
         var data = await res.json();
-
         if (!data.success || !data.result.records || data.result.records.length === 0) break;
-
         for (var j = 0; j < data.result.records.length; j++) {
           var r = data.result.records[j];
-          var trimmedCity = (r['שם_ישוב'] || '').trim();
-          var trimmedStreet = (r['שם_רחוב'] || '').trim();
-
-          if (trimmedCity) citySet.add(trimmedCity);
-          if (trimmedCity && trimmedStreet && trimmedStreet !== 'None') {
-            records.push({ city: trimmedCity, street: trimmedStreet });
-          }
+          var tc = (r['שם_ישוב'] || '').trim();
+          var ts = (r['שם_רחוב'] || '').trim();
+          if (tc) citySet.add(tc);
+          if (tc && ts && ts !== 'None') records.push({ city: tc, street: ts });
         }
-
         statusBar.textContent = 'טוען... (' + records.length + ' רשומות)';
-
         if (data.result.records.length < limit) break;
         offset += limit;
       }
-
       allRecords = records;
       allCities = Array.from(citySet).sort();
       dataLoaded = true;
       cityInput.disabled = false;
       cityInput.placeholder = 'הקלד שם עיר...';
       statusBar.className = 'status-bar';
-      console.log('[' + INSTANCE + '] Loaded ' + allCities.length + ' cities, ' + allRecords.length + ' records');
     } catch (err) {
       console.error('Failed to load data:', err);
       cityInput.disabled = false;
       cityInput.placeholder = 'הקלד שם עיר...';
       statusBar.className = 'status-bar loading-status';
-      statusBar.textContent = 'שגיאה בטעינת נתונים. ניתן להקליד ידנית.';
+      statusBar.textContent = 'שגיאה בטעינה. ניתן להקליד ידנית.';
     }
   }
 
   function getStreetsForCity(city) {
-    var streetSet = new Set();
+    var s = new Set();
     for (var i = 0; i < allRecords.length; i++) {
-      if (allRecords[i].city === city) streetSet.add(allRecords[i].street);
+      if (allRecords[i].city === city) s.add(allRecords[i].street);
     }
-    return Array.from(streetSet).sort();
+    return Array.from(s).sort();
   }
 
   // =============================================
@@ -328,7 +209,6 @@
   function fuzzyMatch(items, query) {
     if (!query || query.length === 0) return items.slice(0, 50);
     var q = query.trim();
-
     var scored = [];
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
@@ -337,80 +217,57 @@
       else if (item.startsWith(q)) score = 80;
       else if (item.includes(q)) score = 60;
       else {
-        var itemClean = item.replace(/[\s\-]/g, '');
-        var qClean = q.replace(/[\s\-]/g, '');
-        if (itemClean.includes(qClean)) score = 50;
+        var ic = item.replace(/[\s\-]/g, '');
+        var qc = q.replace(/[\s\-]/g, '');
+        if (ic.includes(qc)) score = 50;
         else {
-          var matched = 0, pos = 0;
-          for (var c = 0; c < qClean.length; c++) {
-            var idx = itemClean.indexOf(qClean[c], pos);
-            if (idx >= 0) { matched++; pos = idx + 1; }
+          var m = 0, p = 0;
+          for (var c = 0; c < qc.length; c++) {
+            var idx = ic.indexOf(qc[c], p);
+            if (idx >= 0) { m++; p = idx + 1; }
           }
-          if (qClean.length > 0 && matched / qClean.length >= 0.7) {
-            score = Math.round((matched / qClean.length) * 40);
-          }
+          if (qc.length > 0 && m / qc.length >= 0.7) score = Math.round((m / qc.length) * 40);
         }
       }
       if (score > 0) scored.push({ item: item, score: score });
     }
-
     scored.sort(function(a, b) { return b.score - a.score; });
     var result = [];
-    for (var k = 0; k < Math.min(scored.length, 30); k++) {
-      result.push(scored[k].item);
-    }
+    for (var k = 0; k < Math.min(scored.length, 30); k++) result.push(scored[k].item);
     return result;
   }
 
-  function highlightMatch(text, query) {
+  function hl(text, query) {
     if (!query) return text;
     var idx = text.indexOf(query);
     if (idx === -1) return text;
-    return text.substring(0, idx)
-      + '<span class="match">' + text.substring(idx, idx + query.length) + '</span>'
-      + text.substring(idx + query.length);
+    return text.substring(0, idx) + '<span class="match">' + text.substring(idx, idx + query.length) + '</span>' + text.substring(idx + query.length);
   }
 
   // =============================================
   // UI
   // =============================================
 
-  function showSuggestions(container, items, query, onSelect) {
+  function showSugg(container, items, query, onSelect) {
     highlightIndex = -1;
-    if (!items || items.length === 0) {
-      container.innerHTML = '<div class="no-results">לא נמצאו תוצאות</div>';
-      container.classList.add('active');
-      return;
-    }
+    if (!items || items.length === 0) { container.innerHTML = '<div class="no-results">לא נמצאו תוצאות</div>'; container.classList.add('active'); return; }
     var html = '';
-    for (var i = 0; i < items.length; i++) {
-      html += '<div class="item" data-index="' + i + '">' + highlightMatch(items[i], query) + '</div>';
-    }
+    for (var i = 0; i < items.length; i++) html += '<div class="item" data-index="' + i + '">' + hl(items[i], query) + '</div>';
     container.innerHTML = html;
     container.classList.add('active');
-
     var els = container.querySelectorAll('.item');
     for (var j = 0; j < els.length; j++) {
-      (function(idx) {
-        els[idx].addEventListener('mousedown', function(e) {
-          e.preventDefault();
-          onSelect(items[idx]);
-        });
-      })(j);
+      (function(idx) { els[idx].addEventListener('mousedown', function(e) { e.preventDefault(); onSelect(items[idx]); }); })(j);
     }
   }
 
-  function hideSuggestions(container) {
-    container.classList.remove('active');
-    container.innerHTML = '';
-    highlightIndex = -1;
-  }
+  function hideSugg(c) { c.classList.remove('active'); c.innerHTML = ''; highlightIndex = -1; }
 
-  function navigateSuggestions(container, direction) {
+  function navSugg(container, dir) {
     var els = container.querySelectorAll('.item');
     if (els.length === 0) return;
     for (var i = 0; i < els.length; i++) els[i].classList.remove('highlighted');
-    if (direction === 'down') highlightIndex = (highlightIndex + 1) % els.length;
+    if (dir === 'down') highlightIndex = (highlightIndex + 1) % els.length;
     else highlightIndex = highlightIndex <= 0 ? els.length - 1 : highlightIndex - 1;
     els[highlightIndex].classList.add('highlighted');
     els[highlightIndex].scrollIntoView({ block: 'nearest' });
@@ -419,138 +276,104 @@
   function updateStatus() {
     if (selectedCity && selectedStreet && houseInput.value.trim()) {
       statusBar.className = 'status-bar success';
-      var apt = apartmentInput.value.trim();
-      statusBar.textContent = '✓ ' + selectedCity + ', ' + selectedStreet + ' ' + houseInput.value.trim() + (apt ? ' דירה ' + apt : '');
+      var a = apartmentInput.value.trim();
+      statusBar.textContent = '✓ ' + selectedCity + ', ' + selectedStreet + ' ' + houseInput.value.trim() + (a ? ' דירה ' + a : '');
     } else if (!statusBar.classList.contains('loading-status')) {
       statusBar.className = 'status-bar';
     }
   }
 
   // =============================================
-  // CITY INPUT
+  // CITY
   // =============================================
 
   cityInput.addEventListener('input', function() {
+    selectedCity = ''; selectedStreet = ''; currentCityStreets = [];
+    streetInput.value = ''; streetInput.disabled = true; streetInput.placeholder = 'בחר עיר קודם...';
+    cityInput.classList.remove('valid'); streetInput.classList.remove('valid');
     var val = cityInput.value.trim();
-    selectedCity = '';
-    selectedStreet = '';
-    currentCityStreets = [];
-    streetInput.value = '';
-    streetInput.disabled = true;
-    streetInput.placeholder = 'בחר עיר קודם...';
-    cityInput.classList.remove('valid');
-    streetInput.classList.remove('valid');
-
-    if (val.length < 1) { hideSuggestions(citySuggestions); updateStatus(); return; }
-
-    var matches = fuzzyMatch(allCities, val);
-    showSuggestions(citySuggestions, matches, val, selectCity);
+    if (val.length < 1) { hideSugg(citySuggestions); updateStatus(); return; }
+    showSugg(citySuggestions, fuzzyMatch(allCities, val), val, selectCity);
     updateStatus();
   });
 
   cityInput.addEventListener('focus', function() {
     var val = cityInput.value.trim();
-    if (val.length >= 1 && allCities.length > 0) {
-      var matches = fuzzyMatch(allCities, val);
-      showSuggestions(citySuggestions, matches, val, selectCity);
-    }
+    if (val.length >= 1 && allCities.length > 0) showSugg(citySuggestions, fuzzyMatch(allCities, val), val, selectCity);
   });
 
   cityInput.addEventListener('keydown', function(e) {
     if (!citySuggestions.classList.contains('active')) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); navigateSuggestions(citySuggestions, 'down'); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); navigateSuggestions(citySuggestions, 'up'); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); navSugg(citySuggestions, 'down'); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); navSugg(citySuggestions, 'up'); }
     else if (e.key === 'Enter') {
       e.preventDefault();
       var h = citySuggestions.querySelector('.item.highlighted');
-      if (h) {
-        var idx = parseInt(h.dataset.index);
-        var m = fuzzyMatch(allCities, cityInput.value.trim());
-        selectCity(m[idx]);
-      }
+      if (h) selectCity(fuzzyMatch(allCities, cityInput.value.trim())[parseInt(h.dataset.index)]);
     }
-    else if (e.key === 'Escape') hideSuggestions(citySuggestions);
+    else if (e.key === 'Escape') hideSugg(citySuggestions);
   });
 
-  cityInput.addEventListener('blur', function() {
-    setTimeout(function() { hideSuggestions(citySuggestions); }, 200);
-  });
+  cityInput.addEventListener('blur', function() { setTimeout(function() { hideSugg(citySuggestions); }, 200); });
 
   function selectCity(city) {
-    selectedCity = city;
-    cityInput.value = city;
-    cityInput.classList.add('valid');
-    hideSuggestions(citySuggestions);
-
+    selectedCity = city; cityInput.value = city; cityInput.classList.add('valid');
+    hideSugg(citySuggestions);
     currentCityStreets = getStreetsForCity(city);
-
     streetInput.disabled = false;
     streetInput.placeholder = currentCityStreets.length > 0 ? 'הקלד שם רחוב...' : 'לא נמצאו רחובות';
-    streetInput.value = '';
-    streetInput.focus();
-    saveAddress();
+    streetInput.value = ''; streetInput.focus();
     updateStatus();
   }
 
   // =============================================
-  // STREET INPUT
+  // STREET
   // =============================================
 
   streetInput.addEventListener('input', function() {
-    var val = streetInput.value.trim();
-    selectedStreet = '';
-    streetInput.classList.remove('valid');
+    selectedStreet = ''; streetInput.classList.remove('valid');
     if (!selectedCity || currentCityStreets.length === 0) return;
-    var matches = fuzzyMatch(currentCityStreets, val);
-    showSuggestions(streetSuggestions, matches, val, selectStreet);
+    var val = streetInput.value.trim();
+    showSugg(streetSuggestions, fuzzyMatch(currentCityStreets, val), val, selectStreet);
     updateStatus();
   });
 
   streetInput.addEventListener('focus', function() {
     if (selectedCity && currentCityStreets.length > 0) {
-      var val = streetInput.value.trim();
-      var matches = fuzzyMatch(currentCityStreets, val);
-      showSuggestions(streetSuggestions, matches, val, selectStreet);
+      showSugg(streetSuggestions, fuzzyMatch(currentCityStreets, streetInput.value.trim()), streetInput.value.trim(), selectStreet);
     }
   });
 
   streetInput.addEventListener('keydown', function(e) {
     if (!streetSuggestions.classList.contains('active')) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); navigateSuggestions(streetSuggestions, 'down'); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); navigateSuggestions(streetSuggestions, 'up'); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); navSugg(streetSuggestions, 'down'); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); navSugg(streetSuggestions, 'up'); }
     else if (e.key === 'Enter') {
       e.preventDefault();
       var h = streetSuggestions.querySelector('.item.highlighted');
-      if (h) {
-        var idx = parseInt(h.dataset.index);
-        var m = fuzzyMatch(currentCityStreets, streetInput.value.trim());
-        selectStreet(m[idx]);
-      }
+      if (h) selectStreet(fuzzyMatch(currentCityStreets, streetInput.value.trim())[parseInt(h.dataset.index)]);
     }
-    else if (e.key === 'Escape') hideSuggestions(streetSuggestions);
+    else if (e.key === 'Escape') hideSugg(streetSuggestions);
   });
 
-  streetInput.addEventListener('blur', function() {
-    setTimeout(function() { hideSuggestions(streetSuggestions); }, 200);
-  });
+  streetInput.addEventListener('blur', function() { setTimeout(function() { hideSugg(streetSuggestions); }, 200); });
 
   function selectStreet(street) {
-    selectedStreet = street;
-    streetInput.value = street;
-    streetInput.classList.add('valid');
-    hideSuggestions(streetSuggestions);
-    houseInput.focus();
-    saveAddress();
+    selectedStreet = street; streetInput.value = street; streetInput.classList.add('valid');
+    hideSugg(streetSuggestions); houseInput.focus();
+    trySaveAddress();
     updateStatus();
   }
 
   // =============================================
-  // HOUSE & APARTMENT
+  // HOUSE & APARTMENT — save only when complete
   // =============================================
-  houseInput.addEventListener('input', function() { saveAddress(); updateStatus(); });
-  apartmentInput.addEventListener('input', function() { saveAddress(); updateStatus(); });
 
-  // Load on startup
+  houseInput.addEventListener('input', function() { trySaveAddress(); updateStatus(); });
+  houseInput.addEventListener('blur', function() { trySaveAddress(); });
+  apartmentInput.addEventListener('input', function() { trySaveAddress(); });
+  apartmentInput.addEventListener('blur', function() { trySaveAddress(); });
+
   loadAllData();
 </script>
 </body>
