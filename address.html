@@ -5,38 +5,64 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>כתובת למשלוח</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Heebo', sans-serif; background: transparent; direction: rtl; }
-    .address-widget { max-width: 100%; padding: 8px 4px; }
+    .address-widget { max-width: 100%; padding: 4px 0; }
     .field-group { margin-bottom: 14px; position: relative; }
-    .field-group label { display: block; font-size: 14px; font-weight: 500; color: #1a1a2e; margin-bottom: 5px; }
-    .field-group label .required { color: #e63946; margin-right: 2px; }
-    .field-group input {
-      width: 100%; padding: 10px 14px; border: 1.5px solid #d0d5dd; border-radius: 8px;
-      font-size: 15px; font-family: 'Heebo', sans-serif; color: #1a1a2e; background: #fff;
-      transition: border-color 0.2s, box-shadow 0.2s; outline: none;
+    .field-group label {
+      display: block;
+      font-size: 15px;
+      font-weight: 700;
+      color: #1f1f1f;
+      margin-bottom: 6px;
     }
-    .field-group input:focus { border-color: #0a59eb; box-shadow: 0 0 0 3px rgba(10, 89, 235, 0.1); }
-    .field-group input.valid { border-color: #2ecc71; background: #f0fff4; }
-    .field-group input::placeholder { color: #a0a0b0; font-weight: 300; }
+    .field-group label .required {
+      color: #e63946;
+      margin-right: 2px;
+    }
+    .field-group input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #c5cad3;
+      border-radius: 10px;
+      font-size: 15px;
+      font-family: 'Heebo', sans-serif;
+      color: #1f1f1f;
+      background: #e8ecf4;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+      outline: none;
+    }
+    .field-group input:focus {
+      border-color: #8b9dc3;
+      background: #f0f3fa;
+      box-shadow: 0 0 0 2px rgba(139, 157, 195, 0.15);
+    }
+    .field-group input.valid {
+      border-color: #2ecc71;
+      background: #edf9f0;
+    }
+    .field-group input::placeholder {
+      color: #8b95a5;
+      font-weight: 400;
+    }
     .suggestions {
       position: absolute; top: 100%; right: 0; left: 0; background: #fff;
-      border: 1.5px solid #d0d5dd; border-top: none; border-radius: 0 0 8px 8px;
+      border: 1px solid #c5cad3; border-top: none; border-radius: 0 0 10px 10px;
       max-height: 200px; overflow-y: auto; z-index: 1000; display: none;
       box-shadow: 0 8px 24px rgba(0,0,0,0.12);
     }
     .suggestions.active { display: block; }
     .suggestions .item {
-      padding: 10px 14px; cursor: pointer; font-size: 14px; color: #1a1a2e;
+      padding: 10px 16px; cursor: pointer; font-size: 14px; color: #1f1f1f;
       border-bottom: 1px solid #f0f0f0; transition: background 0.15s;
     }
-    .suggestions .item:hover, .suggestions .item.highlighted { background: #eef4ff; }
+    .suggestions .item:hover, .suggestions .item.highlighted { background: #eef2fb; }
     .suggestions .item:last-child { border-bottom: none; }
-    .suggestions .item .match { font-weight: 700; color: #0a59eb; }
-    .suggestions .no-results { padding: 12px 14px; color: #999; font-size: 13px; text-align: center; }
+    .suggestions .item .match { font-weight: 700; color: #3b5998; }
+    .suggestions .no-results { padding: 12px 16px; color: #999; font-size: 13px; text-align: center; }
     .status-bar { margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 13px; display: none; }
-    .status-bar.success { display: block; background: #f0fff4; color: #2d6a4f; border: 1px solid #b7e4c7; }
+    .status-bar.success { display: block; background: #edf9f0; color: #2d6a4f; border: 1px solid #b7e4c7; }
     .status-bar.loading-status { display: block; background: #fff8e1; color: #8d6e00; border: 1px solid #ffe082; }
     .suggestions::-webkit-scrollbar { width: 6px; }
     .suggestions::-webkit-scrollbar-track { background: transparent; }
@@ -79,32 +105,21 @@
   var streetSuggestions = document.getElementById('streetSuggestions');
   var statusBar = document.getElementById('statusBar');
 
-  // =============================================
-  // SAVE TO N8N WEBHOOK
-  // =============================================
-
   function trySave() {
     if (!selectedCity || !selectedStreet) return;
     var data = { city: selectedCity, street: selectedStreet };
     var hash = JSON.stringify(data);
     if (hash === lastSavedHash) return;
-
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function() {
       lastSavedHash = hash;
-      console.log('Saving address:', data);
       fetch(SAVE_WEBHOOK, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
-      }).then(function(r) { console.log('Saved, status:', r.status); })
-        .catch(function(e) { console.warn('Save failed:', e); lastSavedHash = ''; });
+      }).catch(function(e) { lastSavedHash = ''; });
     }, 1000);
   }
-
-  // =============================================
-  // LOAD DATA
-  // =============================================
 
   async function fetchR(url, retries) {
     retries = retries || 3;
@@ -137,7 +152,6 @@
       cityInput.disabled = false; cityInput.placeholder = 'הקלד שם עיר...';
       statusBar.className = 'status-bar';
     } catch (err) {
-      console.error('Load failed:', err);
       cityInput.disabled = false; cityInput.placeholder = 'הקלד שם עיר...';
       statusBar.className = 'status-bar loading-status'; statusBar.textContent = 'שגיאה בטעינה.';
     }
@@ -148,10 +162,6 @@
     for (var i = 0; i < allRecords.length; i++) if (allRecords[i].city === city) s.add(allRecords[i].street);
     return Array.from(s).sort();
   }
-
-  // =============================================
-  // FUZZY MATCH
-  // =============================================
 
   function fuzzy(items, q) {
     if (!q || q.length === 0) return items.slice(0, 50);
@@ -169,10 +179,6 @@
   }
 
   function hl(t,q) { if(!q)return t; var i=t.indexOf(q); if(i===-1)return t; return t.substring(0,i)+'<span class="match">'+t.substring(i,i+q.length)+'</span>'+t.substring(i+q.length); }
-
-  // =============================================
-  // UI
-  // =============================================
 
   function showS(c,items,q,onSel) {
     highlightIndex=-1;
@@ -194,9 +200,6 @@
     }
   }
 
-  // =============================================
-  // CITY
-  // =============================================
   cityInput.addEventListener('input', function() {
     selectedCity='';selectedStreet='';currentCityStreets=[];streetInput.value='';streetInput.disabled=true;streetInput.placeholder='בחר עיר קודם...';cityInput.classList.remove('valid');streetInput.classList.remove('valid');
     var v=cityInput.value.trim();if(v.length<1){hideS(citySuggestions);updateStatus();return;}
@@ -213,9 +216,6 @@
     updateStatus();
   }
 
-  // =============================================
-  // STREET
-  // =============================================
   streetInput.addEventListener('input',function(){selectedStreet='';streetInput.classList.remove('valid');if(!selectedCity||!currentCityStreets.length)return;showS(streetSuggestions,fuzzy(currentCityStreets,streetInput.value.trim()),streetInput.value.trim(),selectStreet);updateStatus();});
   streetInput.addEventListener('focus',function(){if(selectedCity&&currentCityStreets.length>0)showS(streetSuggestions,fuzzy(currentCityStreets,streetInput.value.trim()),streetInput.value.trim(),selectStreet);});
   streetInput.addEventListener('keydown',function(e){if(!streetSuggestions.classList.contains('active'))return;if(e.key==='ArrowDown'){e.preventDefault();navS(streetSuggestions,'down');}else if(e.key==='ArrowUp'){e.preventDefault();navS(streetSuggestions,'up');}else if(e.key==='Enter'){e.preventDefault();var h=streetSuggestions.querySelector('.item.highlighted');if(h)selectStreet(fuzzy(currentCityStreets,streetInput.value.trim())[parseInt(h.dataset.index)]);}else if(e.key==='Escape')hideS(streetSuggestions);});
