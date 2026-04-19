@@ -20,9 +20,6 @@
     .field-group input:focus { border-color: #0a59eb; box-shadow: 0 0 0 3px rgba(10, 89, 235, 0.1); }
     .field-group input.valid { border-color: #2ecc71; background: #f0fff4; }
     .field-group input::placeholder { color: #a0a0b0; font-weight: 300; }
-    .row { display: flex; gap: 10px; }
-    .row .field-group { flex: 1; }
-    .row .field-group.small { flex: 0 0 100px; }
     .suggestions {
       position: absolute; top: 100%; right: 0; left: 0; background: #fff;
       border: 1.5px solid #d0d5dd; border-top: none; border-radius: 0 0 8px 8px;
@@ -44,7 +41,6 @@
     .suggestions::-webkit-scrollbar { width: 6px; }
     .suggestions::-webkit-scrollbar-track { background: transparent; }
     .suggestions::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
-    @media (max-width: 400px) { .row { flex-direction: column; gap: 0; } .row .field-group.small { flex: 1; } }
   </style>
 </head>
 <body>
@@ -58,16 +54,6 @@
     <label><span class="required">*</span> רחוב</label>
     <input type="text" id="streetInput" placeholder="בחר עיר קודם..." autocomplete="off" disabled />
     <div class="suggestions" id="streetSuggestions"></div>
-  </div>
-  <div class="row">
-    <div class="field-group">
-      <label><span class="required">*</span> מספר בית</label>
-      <input type="text" id="houseInput" placeholder="מספר בית" autocomplete="off" />
-    </div>
-    <div class="field-group small">
-      <label>דירה</label>
-      <input type="text" id="apartmentInput" placeholder="דירה" autocomplete="off" />
-    </div>
   </div>
   <div class="status-bar" id="statusBar"></div>
 </div>
@@ -89,8 +75,6 @@
 
   var cityInput = document.getElementById('cityInput');
   var streetInput = document.getElementById('streetInput');
-  var houseInput = document.getElementById('houseInput');
-  var apartmentInput = document.getElementById('apartmentInput');
   var citySuggestions = document.getElementById('citySuggestions');
   var streetSuggestions = document.getElementById('streetSuggestions');
   var statusBar = document.getElementById('statusBar');
@@ -100,8 +84,8 @@
   // =============================================
 
   function trySave() {
-    if (!selectedCity || !selectedStreet || !houseInput.value.trim()) return;
-    var data = { city: selectedCity, street: selectedStreet, house: houseInput.value.trim(), apartment: apartmentInput.value.trim() };
+    if (!selectedCity || !selectedStreet) return;
+    var data = { city: selectedCity, street: selectedStreet };
     var hash = JSON.stringify(data);
     if (hash === lastSavedHash) return;
 
@@ -202,10 +186,9 @@
   function navS(c,dir){var els=c.querySelectorAll('.item');if(!els.length)return;for(var i=0;i<els.length;i++)els[i].classList.remove('highlighted');if(dir==='down')highlightIndex=(highlightIndex+1)%els.length;else highlightIndex=highlightIndex<=0?els.length-1:highlightIndex-1;els[highlightIndex].classList.add('highlighted');els[highlightIndex].scrollIntoView({block:'nearest'});}
 
   function updateStatus() {
-    if (selectedCity && selectedStreet && houseInput.value.trim()) {
+    if (selectedCity && selectedStreet) {
       statusBar.className = 'status-bar success';
-      var a = apartmentInput.value.trim();
-      statusBar.textContent = '✓ ' + selectedCity + ', ' + selectedStreet + ' ' + houseInput.value.trim() + (a ? ' דירה ' + a : '');
+      statusBar.textContent = '✓ ' + selectedCity + ', ' + selectedStreet;
     } else if (!statusBar.classList.contains('loading-status')) {
       statusBar.className = 'status-bar';
     }
@@ -239,17 +222,9 @@
   streetInput.addEventListener('blur',function(){setTimeout(function(){hideS(streetSuggestions);},200);});
 
   function selectStreet(street) {
-    selectedStreet=street;streetInput.value=street;streetInput.classList.add('valid');hideS(streetSuggestions);houseInput.focus();
+    selectedStreet=street;streetInput.value=street;streetInput.classList.add('valid');hideS(streetSuggestions);
     trySave();updateStatus();
   }
-
-  // =============================================
-  // HOUSE & APARTMENT
-  // =============================================
-  houseInput.addEventListener('input',function(){trySave();updateStatus();});
-  houseInput.addEventListener('blur',function(){trySave();});
-  apartmentInput.addEventListener('input',function(){trySave();});
-  apartmentInput.addEventListener('blur',function(){trySave();});
 
   loadAllData();
 </script>
