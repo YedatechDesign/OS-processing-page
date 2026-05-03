@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>השלמת כתובת</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Heebo', sans-serif;
+      background: linear-gradient(135deg, #0a2351 0%, #1e3a6f 50%, #2d4a7c 100%);
+      min-height: 100vh; display: flex; justify-content: center; align-items: center;
+      padding: 20px; direction: rtl;
+    }
+    .container {
+      background: white; padding: 40px 36px; border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4); max-width: 520px; width: 100%;
+      border-top: 6px solid #00bcd4;
+    }
+    h1 { color: #0a2351; font-size: 26px; margin-bottom: 12px; font-weight: 700; }
+    .subtitle { color: #555; font-size: 15px; line-height: 1.6; margin-bottom: 24px; }
+
+    .field-group { margin-bottom: 16px; position: relative; }
+    .field-group label { display: block; font-size: 15px; font-weight: 700; color: #1f1f1f; margin-bottom: 6px; }
+    .field-group label .required { color: #e63946; margin-right: 2px; }
+    .field-group input {
+      width: 100%; padding: 12px 16px; border: 1px solid #c5cad3; border-radius: 10px;
+      font-size: 15px; font-family: 'Heebo', sans-serif; color: #1f1f1f; background: #e8ecf4;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s; outline: none;
+    }
+    .field-group input:focus { border-color: #8b9dc3; background: #f0f3fa; box-shadow: 0 0 0 2px rgba(139,157,195,0.15); }
+    .field-group input.valid { border-color: #2ecc71; background: #edf9f0; }
+    .field-group input.invalid { border-color: #e63946; background: #fef2f2; }
+    .field-group input::placeholder { color: #8b95a5; font-weight: 400; }
+    .field-hint { font-size: 12px; color: #6b7280; margin-top: 4px; padding-right: 2px; }
+
+    .suggestions {
+      position: absolute; top: 100%; right: 0; left: 0; background: #fff;
+      border: 1px solid #c5cad3; border-top: none; border-radius: 0 0 10px 10px;
+      max-height: 200px; overflow-y: auto; z-index: 1000; display: none;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    .suggestions.active { display: block; }
+    .suggestions .item {
+      padding: 10px 16px; cursor: pointer; font-size: 14px; color: #1f1f1f;
+      border-bottom: 1px solid #f0f0f0; transition: background 0.15s;
+    }
+    .suggestions .item:hover, .suggestions .item.highlighted { background: #eef2fb; }
+    .suggestions .item:last-child { border-bottom: none; }
+    .suggestions .item .match { font-weight: 700; color: #3b5998; }
+    .suggestions .no-results { padding: 12px 16px; color: #999; font-size: 13px; text-align: center; }
+    .suggestions .loading-item { padding: 12px 16px; color: #8b95a5; font-size: 13px; text-align: center; }
+
+    .btn {
+      width: 100%; padding: 14px; border-radius: 10px; border: none; cursor: pointer;
+      font-family: 'Heebo', sans-serif; font-size: 16px; font-weight: 600;
+      transition: opacity 0.2s, background 0.2s;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #0a2351; color: white; margin-top: 8px; }
+    .btn-primary:hover:not(:disabled) { background: #1e3a6f; }
+    .btn-secondary {
+      background: transparent; color: #6b7280; border: 1px solid #c5cad3;
+      margin-top: 12px; font-size: 14px; padding: 10px;
+    }
+    .btn-secondary:hover { background: #f4f5f7; }
+
+    .error-msg {
+      background: #ffebee; color: #c62828; padding: 14px; border-radius: 10px;
+      margin-top: 16px; font-size: 14px; display: none;
+    }
+    .error-msg.show { display: block; }
+
+    .final-state, .cancelled-state { display: none; text-align: center; }
+    .final-state.show, .cancelled-state.show { display: block; }
+    .final-state h2, .cancelled-state h2 {
+      color: #0a2351; font-size: 22px; margin-bottom: 14px;
+    }
+    .final-state p, .cancelled-state p {
+      color: #555; font-size: 15px; line-height: 1.7; margin-bottom: 10px;
+    }
+
+    @media (max-width: 480px) {
+      .container { padding: 30px 24px; }
+      h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- стан 1: форма для повторного вводу -->
+  <div id="formArea">
+    <h1>השלמת כתובת להזמנה</h1>
+    <p class="subtitle">לא הצלחנו לאתר את הכתובת. יש להזין אותה שוב.</p>
+
+    <div class="field-group">
+      <label><span class="required">*</span> מייל לאימות</label>
+      <input type="email" id="emailInput" autocomplete="email" />
+      <div class="field-hint">יש לוודא שהמייל זהה למייל שהוזן בטופס</div>
+    </div>
+
+    <div class="field-group">
+      <label><span class="required">*</span> עיר / יישוב</label>
+      <input type="text" id="cityInput" placeholder="הקלד שם עיר..." autocomplete="off" />
+      <div class="suggestions" id="citySuggestions"></div>
+    </div>
+
+    <div class="field-group">
+      <label><span class="required">*</span> רחוב</label>
+      <input type="text" id="streetInput" placeholder="בחר עיר קודם..." autocomplete="off" disabled />
+      <div class="suggestions" id="streetSuggestions"></div>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <button class="btn btn-primary" id="submitBtn">המשך לתשלום</button>
+    <button class="btn btn-secondary" id="cancelBtn">לבטל ולהזמין מחדש</button>
+  </div>
+
+  <!-- стан 2: фінальна помилка (1 невдала спроба) -->
+  <div id="finalState" class="final-state">
+    <h2>יש בעיה במייל</h2>
+    <p>ייתכן שהמייל שהוזן בטופס המקורי שגוי.</p>
+    <p>ניתן להזמין מחדש.</p>
+    <p>אם זה לא יעבוד — צוות אורין שפלטר יצור קשר.</p>
+  </div>
+
+  <!-- стан 3: скасування -->
+  <div id="cancelledState" class="cancelled-state">
+    <h2>ההזמנה בוטלה</h2>
+    <p>ניתן להזמין מחדש.</p>
+  </div>
+
+</div>
+
+<script>
+  var GOV_API = 'https://data.gov.il/api/3/action/datastore_search';
+  var STREETS_RESOURCE = '9ad3862c-8391-4b2f-84a4-2d4c68625f4b';
+  var RETRY_WEBHOOK = 'https://yedauto.com/webhook/retry-address';
+  var NOTIFY_WEBHOOK = 'https://yedauto.com/webhook/notify-missing-address';
+  var CANCEL_WEBHOOK = 'https://yedauto.com/webhook/cancel-order';
+
+  var params = new URLSearchParams(window.location.search);
+  var submissionId = params.get('submission_id');
+
+  var allCities = [], allRecords = [], currentCityStreets = [];
+  var selectedCity = '', selectedStreet = '', selectedEmail = '';
+  var highlightIndex = -1, dataLoaded = false, searchTimer = null;
+  var attemptUsed = false;
+
+  var emailInput = document.getElementById('emailInput');
+  var cityInput = document.getElementById('cityInput');
+  var streetInput = document.getElementById('streetInput');
+  var citySuggestions = document.getElementById('citySuggestions');
+  var streetSuggestions = document.getElementById('streetSuggestions');
+  var submitBtn = document.getElementById('submitBtn');
+  var cancelBtn = document.getElementById('cancelBtn');
+  var errorMsg = document.getElementById('errorMsg');
+
+  function isValidEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
+  function showError(msg) { errorMsg.textContent = msg; errorMsg.classList.add('show'); }
+  function hideError() { errorMsg.classList.remove('show'); }
+  function showFinalState() {
+    document.getElementById('formArea').style.display = 'none';
+    document.getElementById('finalState').classList.add('show');
+  }
+  function showCancelledState() {
+    document.getElementById('formArea').style.display = 'none';
+    document.getElementById('cancelledState').classList.add('show');
+  }
+
+  // ====== EMAIL ======
+  emailInput.addEventListener('blur', function() {
+    var v = emailInput.value.trim().toLowerCase();
+    if (v && isValidEmail(v)) {
+      selectedEmail = v; emailInput.value = v;
+      emailInput.classList.add('valid'); emailInput.classList.remove('invalid');
+    } else if (v) {
+      emailInput.classList.add('invalid'); emailInput.classList.remove('valid');
+      selectedEmail = '';
+    } else { emailInput.classList.remove('valid','invalid'); selectedEmail = ''; }
+  });
+  emailInput.addEventListener('input', function() {
+    selectedEmail = ''; emailInput.classList.remove('valid','invalid');
+  });
+
+  // ====== ADDRESS AUTOCOMPLETE (з gov.il, як в address.html) ======
+  async function apiSearchCities(q) {
+    try {
+      var url = GOV_API + '?resource_id=' + STREETS_RESOURCE + '&limit=100&fields=שם_ישוב&q=' + encodeURIComponent(q);
+      var r = await fetch(url); var d = await r.json();
+      if (!d.success) return [];
+      var s = new Set();
+      d.result.records.forEach(function(rec){ var c=(rec['שם_ישוב']||'').trim(); if(c) s.add(c); });
+      return Array.from(s).sort();
+    } catch(e) { return []; }
+  }
+  async function apiSearchStreets(city, q) {
+    try {
+      var filters = JSON.stringify({'שם_ישוב': city});
+      var url = GOV_API + '?resource_id=' + STREETS_RESOURCE + '&limit=500&fields=שם_רחוב&filters=' + encodeURIComponent(filters);
+      if (q) url += '&q=' + encodeURIComponent(q);
+      var r = await fetch(url); var d = await r.json();
+      if (!d.success) return [];
+      var s = new Set();
+      d.result.records.forEach(function(rec){ var st=(rec['שם_רחוב']||'').trim(); if(st && st!=='None') s.add(st); });
+      return Array.from(s).sort();
+    } catch(e) { return []; }
+  }
+  async function fetchR(url, retries) {
+    retries = retries || 3;
+    for (var i = 0; i < retries; i++) {
+      try { var r = await fetch(url); if (r.ok) return r; } catch(e) { if (i < retries-1) await new Promise(function(r){setTimeout(r,1000*(i+1));}); }
+    }
+    throw new Error('Failed');
+  }
+  async function loadAllData() {
+    try {
+      var citySet = new Set(); var records = []; var offset = 0; var limit = 10000;
+      while (true) {
+        var url = GOV_API + '?resource_id=' + STREETS_RESOURCE + '&limit=' + limit + '&fields=שם_ישוב,שם_רחוב&offset=' + offset;
+        var r = await fetchR(url, 3); var d = await r.json();
+        if (!d.success || !d.result.records || d.result.records.length === 0) break;
+        for (var j = 0; j < d.result.records.length; j++) {
+          var rec = d.result.records[j];
+          var tc = (rec['שם_ישוב']||'').trim(); var ts = (rec['שם_רחוב']||'').trim();
+          if (tc) citySet.add(tc);
+          if (tc && ts && ts !== 'None') records.push({ city: tc, street: ts });
+        }
+        if (d.result.records.length < limit) break;
+        offset += limit;
+      }
+      allRecords = records; allCities = Array.from(citySet).sort(); dataLoaded = true;
+    } catch (err) { console.error('Background load failed:', err); }
+  }
+  function getStreets(city) {
+    var s = new Set();
+    for (var i = 0; i < allRecords.length; i++) if (allRecords[i].city === city) s.add(allRecords[i].street);
+    return Array.from(s).sort();
+  }
+  function fuzzy(items, q) {
+    if (!q || q.length === 0) return items.slice(0, 50);
+    q = q.trim(); var scored = [];
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i], score = 0;
+      if (item === q) score = 100;
+      else if (item.startsWith(q)) score = 80;
+      else if (item.includes(q)) score = 60;
+      else { var ic=item.replace(/[\s\-]/g,''),qc=q.replace(/[\s\-]/g,''); if(ic.includes(qc)) score=50; else { var m=0,p=0; for(var c=0;c<qc.length;c++){var idx=ic.indexOf(qc[c],p);if(idx>=0){m++;p=idx+1;}} if(qc.length>0&&m/qc.length>=0.7) score=Math.round((m/qc.length)*40); } }
+      if (score > 0) scored.push({ item: item, score: score });
+    }
+    scored.sort(function(a,b){return b.score-a.score;});
+    return scored.slice(0,30).map(function(s){return s.item;});
+  }
+  function hl(t,q) { if(!q)return t; var i=t.indexOf(q); if(i===-1)return t; return t.substring(0,i)+'<span class="match">'+t.substring(i,i+q.length)+'</span>'+t.substring(i+q.length); }
+  function showS(c,items,q,onSel) {
+    highlightIndex=-1;
+    if(!items||items.length===0){c.innerHTML='<div class="no-results">לא נמצאו תוצאות</div>';c.classList.add('active');return;}
+    var h='';for(var i=0;i<items.length;i++) h+='<div class="item" data-index="'+i+'">'+hl(items[i],q)+'</div>';
+    c.innerHTML=h;c.classList.add('active');
+    var els=c.querySelectorAll('.item');
+    for(var j=0;j<els.length;j++)(function(idx){els[idx].addEventListener('mousedown',function(e){e.preventDefault();onSel(items[idx]);});})(j);
+  }
+  function showLoading(c) { c.innerHTML='<div class="loading-item">טוען...</div>'; c.classList.add('active'); }
+  function hideS(c){c.classList.remove('active');c.innerHTML='';highlightIndex=-1;}
+  function navS(c,dir){var els=c.querySelectorAll('.item');if(!els.length)return;for(var i=0;i<els.length;i++)els[i].classList.remove('highlighted');if(dir==='down')highlightIndex=(highlightIndex+1)%els.length;else highlightIndex=highlightIndex<=0?els.length-1:highlightIndex-1;els[highlightIndex].classList.add('highlighted');els[highlightIndex].scrollIntoView({block:'nearest'});}
+
+  cityInput.addEventListener('input', function() {
+    selectedCity=''; selectedStreet=''; currentCityStreets=[];
+    streetInput.value=''; streetInput.disabled=true; streetInput.placeholder='בחר עיר קודם...';
+    cityInput.classList.remove('valid'); streetInput.classList.remove('valid');
+    var v=cityInput.value.trim();
+    if(v.length<1){hideS(citySuggestions);return;}
+    clearTimeout(searchTimer);
+    if (dataLoaded) showS(citySuggestions,fuzzy(allCities,v),v,selectCity);
+    else {
+      showLoading(citySuggestions);
+      searchTimer = setTimeout(async function() {
+        var results = await apiSearchCities(v);
+        if (cityInput.value.trim() === v) showS(citySuggestions,results,v,selectCity);
+      }, 300);
+    }
+  });
+  cityInput.addEventListener('focus',function(){
+    var v=cityInput.value.trim();
+    if(v.length>=1 && dataLoaded) showS(citySuggestions,fuzzy(allCities,v),v,selectCity);
+  });
+  cityInput.addEventListener('keydown',function(e){
+    if(!citySuggestions.classList.contains('active'))return;
+    if(e.key==='ArrowDown'){e.preventDefault();navS(citySuggestions,'down');}
+    else if(e.key==='ArrowUp'){e.preventDefault();navS(citySuggestions,'up');}
+    else if(e.key==='Enter'){e.preventDefault();var h=citySuggestions.querySelector('.item.highlighted');if(h){var items=citySuggestions.querySelectorAll('.item');var idx=parseInt(h.dataset.index);var t=items[idx]?items[idx].textContent:'';if(t)selectCity(t);}}
+    else if(e.key==='Escape')hideS(citySuggestions);
+  });
+  cityInput.addEventListener('blur',function(){setTimeout(function(){hideS(citySuggestions);},200);});
+
+  function selectCity(city) {
+    selectedCity=city; cityInput.value=city; cityInput.classList.add('valid'); hideS(citySuggestions);
+    if (dataLoaded) currentCityStreets=getStreets(city);
+    streetInput.disabled=false; streetInput.placeholder='הקלד שם רחוב...';
+    streetInput.value=''; streetInput.focus();
+  }
+
+  streetInput.addEventListener('input',function(){
+    selectedStreet=''; streetInput.classList.remove('valid');
+    if(!selectedCity)return;
+    var v=streetInput.value.trim();
+    clearTimeout(searchTimer);
+    if (dataLoaded) {
+      if (currentCityStreets.length === 0) currentCityStreets = getStreets(selectedCity);
+      showS(streetSuggestions,fuzzy(currentCityStreets,v),v,selectStreet);
+    } else {
+      showLoading(streetSuggestions);
+      searchTimer = setTimeout(async function() {
+        var results = await apiSearchStreets(selectedCity, v);
+        if (streetInput.value.trim() === v) showS(streetSuggestions,results,v,selectStreet);
+      }, 300);
+    }
+  });
+  streetInput.addEventListener('focus',function(){
+    if(!selectedCity) return;
+    var v=streetInput.value.trim();
+    if (dataLoaded) {
+      if (currentCityStreets.length === 0) currentCityStreets = getStreets(selectedCity);
+      showS(streetSuggestions,fuzzy(currentCityStreets,v),v,selectStreet);
+    }
+  });
+  streetInput.addEventListener('keydown',function(e){
+    if(!streetSuggestions.classList.contains('active'))return;
+    if(e.key==='ArrowDown'){e.preventDefault();navS(streetSuggestions,'down');}
+    else if(e.key==='ArrowUp'){e.preventDefault();navS(streetSuggestions,'up');}
+    else if(e.key==='Enter'){e.preventDefault();var h=streetSuggestions.querySelector('.item.highlighted');if(h){var items=streetSuggestions.querySelectorAll('.item');var idx=parseInt(h.dataset.index);var t=items[idx]?items[idx].textContent:'';if(t)selectStreet(t);}}
+    else if(e.key==='Escape')hideS(streetSuggestions);
+  });
+  streetInput.addEventListener('blur',function(){setTimeout(function(){hideS(streetSuggestions);},200);});
+
+  function selectStreet(street) {
+    selectedStreet=street; streetInput.value=street;
+    streetInput.classList.add('valid'); hideS(streetSuggestions);
+  }
+
+  // ====== SUBMIT ======
+  submitBtn.addEventListener('click', async function() {
+    if (attemptUsed) return;
+    hideError();
+
+    var email = emailInput.value.trim().toLowerCase();
+    var city = selectedCity || cityInput.value.trim();
+    var street = selectedStreet || streetInput.value.trim();
+
+    if (!email || !isValidEmail(email)) { showError('יש להזין מייל תקין'); return; }
+    if (!city) { showError('יש לבחור עיר'); return; }
+    if (!street) { showError('יש לבחור רחוב'); return; }
+
+    attemptUsed = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'שולח...';
+
+    try {
+      var res = await fetch(RETRY_WEBHOOK, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ submission_id: submissionId, email: email, city: city, street: street })
+      });
+      var data = await res.json();
+
+      if (data.success && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+        return;
+      }
+
+      // Email mismatch — single attempt → final state
+      await fetch(NOTIFY_WEBHOOK, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ submission_id: submissionId })
+      });
+      showFinalState();
+    } catch (err) {
+      console.error(err);
+      attemptUsed = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'המשך לתשלום';
+      showError('אירעה שגיאה. יש לנסות שוב.');
+    }
+  });
+
+  // ====== CANCEL ======
+  cancelBtn.addEventListener('click', async function() {
+    if (!confirm('האם לבטל את ההזמנה ולהזמין מחדש?')) return;
+    cancelBtn.disabled = true;
+    submitBtn.disabled = true;
+    try {
+      await fetch(CANCEL_WEBHOOK, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ submission_id: submissionId })
+      });
+    } catch(e) { console.error(e); }
+    showCancelledState();
+  });
+
+  // start loading address data
+  loadAllData();
+</script>
+</body>
+</html>

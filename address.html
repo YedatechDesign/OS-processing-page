@@ -38,6 +38,8 @@
     .suggestions .loading-item { padding: 12px 16px; color: #8b95a5; font-size: 13px; text-align: center; }
     .status-bar { margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 13px; display: none; }
     .status-bar.success { display: block; background: #edf9f0; color: #2d6a4f; border: 1px solid #b7e4c7; }
+    .field-hint { font-size: 12px; color: #6b7280; margin-top: 4px; padding-right: 2px; }
+    .field-group input.invalid { border-color: #e63946; background: #fef2f2; }
     .suggestions::-webkit-scrollbar { width: 6px; }
     .suggestions::-webkit-scrollbar-track { background: transparent; }
     .suggestions::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
@@ -45,6 +47,11 @@
 </head>
 <body>
 <div class="address-widget">
+  <div class="field-group">
+    <label><span class="required">*</span> מייל לאימות</label>
+    <input type="email" id="emailInput" placeholder="" autocomplete="email" />
+    <div class="field-hint">יש לוודא שהמייל זהה למייל שהוזן בטופס</div>
+  </div>
   <div class="field-group">
     <label><span class="required">*</span> עיר / יישוב</label>
     <input type="text" id="cityInput" placeholder="הקלד שם עיר..." autocomplete="off" />
@@ -66,6 +73,7 @@
   var allCities = [];
   var allRecords = [];
   var currentCityStreets = [];
+  var selectedEmail = '';
   var selectedCity = '';
   var selectedStreet = '';
   var highlightIndex = -1;
@@ -74,19 +82,47 @@
   var saveTimer = null;
   var searchTimer = null;
 
+  var emailInput = document.getElementById('emailInput');
   var cityInput = document.getElementById('cityInput');
   var streetInput = document.getElementById('streetInput');
   var citySuggestions = document.getElementById('citySuggestions');
   var streetSuggestions = document.getElementById('streetSuggestions');
   var statusBar = document.getElementById('statusBar');
 
+  function isValidEmail(e) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  }
+
+  emailInput.addEventListener('blur', function() {
+    var v = emailInput.value.trim().toLowerCase();
+    if (v && isValidEmail(v)) {
+      selectedEmail = v;
+      emailInput.value = v;
+      emailInput.classList.add('valid');
+      emailInput.classList.remove('invalid');
+      trySave();
+    } else if (v) {
+      emailInput.classList.add('invalid');
+      emailInput.classList.remove('valid');
+      selectedEmail = '';
+    } else {
+      emailInput.classList.remove('valid','invalid');
+      selectedEmail = '';
+    }
+  });
+
+  emailInput.addEventListener('input', function() {
+    selectedEmail = '';
+    emailInput.classList.remove('valid','invalid');
+  });
+
   // =============================================
   // SAVE TO N8N WEBHOOK
   // =============================================
 
   function trySave() {
-    if (!selectedCity || !selectedStreet) return;
-    var data = { city: selectedCity, street: selectedStreet };
+    if (!selectedEmail || !selectedCity || !selectedStreet) return;
+    var data = { email: selectedEmail, city: selectedCity, street: selectedStreet };
     var hash = JSON.stringify(data);
     if (hash === lastSavedHash) return;
     clearTimeout(saveTimer);
@@ -236,7 +272,7 @@
   function navS(c,dir){var els=c.querySelectorAll('.item');if(!els.length)return;for(var i=0;i<els.length;i++)els[i].classList.remove('highlighted');if(dir==='down')highlightIndex=(highlightIndex+1)%els.length;else highlightIndex=highlightIndex<=0?els.length-1:highlightIndex-1;els[highlightIndex].classList.add('highlighted');els[highlightIndex].scrollIntoView({block:'nearest'});}
 
   function updateStatus() {
-    if (selectedCity && selectedStreet) {
+    if (selectedEmail && selectedCity && selectedStreet) {
       statusBar.className = 'status-bar success';
       statusBar.textContent = '✓ ' + selectedCity + ', ' + selectedStreet;
     } else {
