@@ -132,9 +132,10 @@
       fetch(SAVE_WEBHOOK, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
+        keepalive: true
       }).catch(function(e) { lastSavedHash = ''; });
-    }, 1000);
+    }, 200);
   }
 
   // =============================================
