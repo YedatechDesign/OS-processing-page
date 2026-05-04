@@ -121,9 +121,18 @@
   // SAVE TO N8N WEBHOOK
   // =============================================
 
+  function getCurrentValues() {
+    return {
+      email: (selectedEmail || emailInput.value || '').trim().toLowerCase(),
+      city: (selectedCity || cityInput.value || '').trim(),
+      street: (selectedStreet || streetInput.value || '').trim()
+    };
+  }
+
   function trySave() {
-    if (!selectedEmail || !selectedCity || !selectedStreet) return;
-    var data = { email: selectedEmail, city: selectedCity, street: selectedStreet };
+    var data = getCurrentValues();
+    if (!data.email || !data.city || !data.street) return;
+    if (!isValidEmail(data.email)) return;
     var hash = JSON.stringify(data);
     if (hash === lastSavedHash) return;
     clearTimeout(saveTimer);
@@ -141,8 +150,9 @@
   // sendBeacon as last-ditch save when iframe is being unloaded
   // (e.g. parent Tally form navigates away after submission)
   function flushSave() {
-    if (!selectedEmail || !selectedCity || !selectedStreet) return;
-    var data = { email: selectedEmail, city: selectedCity, street: selectedStreet };
+    var data = getCurrentValues();
+    if (!data.email || !data.city || !data.street) return;
+    if (!isValidEmail(data.email)) return;
     var hash = JSON.stringify(data);
     if (hash === lastSavedHash) return;
     lastSavedHash = hash;
@@ -153,6 +163,17 @@
   }
   window.addEventListener('pagehide', flushSave);
   window.addEventListener('beforeunload', flushSave);
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') flushSave();
+  });
+
+  // Fire save attempts whenever any field loses focus (covers cases where
+  // student types without selecting from autocomplete and then clicks Submit)
+  emailInput.addEventListener('change', trySave);
+  cityInput.addEventListener('change', trySave);
+  cityInput.addEventListener('blur', trySave);
+  streetInput.addEventListener('change', trySave);
+  streetInput.addEventListener('blur', trySave);
 
   // =============================================
   // API SEARCH (used while full data loads)
