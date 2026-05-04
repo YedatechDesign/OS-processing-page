@@ -138,6 +138,22 @@
     }, 200);
   }
 
+  // sendBeacon as last-ditch save when iframe is being unloaded
+  // (e.g. parent Tally form navigates away after submission)
+  function flushSave() {
+    if (!selectedEmail || !selectedCity || !selectedStreet) return;
+    var data = { email: selectedEmail, city: selectedCity, street: selectedStreet };
+    var hash = JSON.stringify(data);
+    if (hash === lastSavedHash) return;
+    lastSavedHash = hash;
+    try {
+      var blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      navigator.sendBeacon(SAVE_WEBHOOK, blob);
+    } catch (e) { /* ignore */ }
+  }
+  window.addEventListener('pagehide', flushSave);
+  window.addEventListener('beforeunload', flushSave);
+
   // =============================================
   // API SEARCH (used while full data loads)
   // =============================================
