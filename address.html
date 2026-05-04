@@ -146,23 +146,6 @@
   }
   function hideStreetError() { document.getElementById('streetError').classList.remove('show'); }
 
-  // Validate manually-typed city against gov.il dataset (cached if loaded, API otherwise)
-  async function validateCity(v) {
-    if (!v) return false;
-    if (dataLoaded) return allCities.indexOf(v) >= 0;
-    var results = await apiSearchCities(v);
-    return results.indexOf(v) >= 0;
-  }
-  async function validateStreet(city, v) {
-    if (!city || !v) return false;
-    if (dataLoaded) {
-      if (currentCityStreets.length === 0) currentCityStreets = getStreets(city);
-      return currentCityStreets.indexOf(v) >= 0;
-    }
-    var results = await apiSearchStreets(city, v);
-    return results.indexOf(v) >= 0;
-  }
-
   function trySave() {
     var data = getCurrentValues();
     if (!data.email || !data.city || !data.street) return;
@@ -201,55 +184,49 @@
     if (document.visibilityState === 'hidden') flushSave();
   });
 
-  // City blur: validate manually-typed input against gov.il dataset
+  // City blur: must have selected from dropdown — otherwise clear + red
   cityInput.addEventListener('blur', function() {
-    setTimeout(async function() {
+    setTimeout(function() {
       var v = cityInput.value.trim();
       if (!v) { hideCityError(); return; }
-      if (v === selectedCity) { hideCityError(); return; }
-      hideCityError();
-      var ok = await validateCity(v);
-      if (ok) {
-        selectedCity = v;
+      if (selectedCity && v === selectedCity) {
+        hideCityError();
         cityInput.classList.add('valid');
         cityInput.classList.remove('invalid');
-        if (dataLoaded) currentCityStreets = getStreets(v);
-        streetInput.disabled = false;
-        if (streetInput.placeholder === 'בחר עיר קודם...') streetInput.placeholder = 'הקלד שם רחוב...';
-        trySave();
       } else {
+        cityInput.value = '';
         selectedCity = '';
         cityInput.classList.add('invalid');
         cityInput.classList.remove('valid');
-        showCityError('עיר לא נמצאה במאגר. בחר מהרשימה.');
+        showCityError('יש לבחור עיר מהרשימה.');
+        // Reset street since city is gone
+        streetInput.value = '';
+        streetInput.disabled = true;
+        streetInput.placeholder = 'בחר עיר קודם...';
+        streetInput.classList.remove('valid','invalid');
+        selectedStreet = '';
+        hideStreetError();
       }
-    }, 250);
+    }, 200);
   });
 
-  // Street blur: validate against gov.il streets for selected city
+  // Street blur: must have selected from dropdown — otherwise clear + red
   streetInput.addEventListener('blur', function() {
-    setTimeout(async function() {
+    setTimeout(function() {
       var v = streetInput.value.trim();
       if (!v) { hideStreetError(); return; }
-      if (v === selectedStreet) { hideStreetError(); return; }
-      hideStreetError();
-      if (!selectedCity) {
-        showStreetError('בחר עיר קודם.');
-        return;
-      }
-      var ok = await validateStreet(selectedCity, v);
-      if (ok) {
-        selectedStreet = v;
+      if (selectedStreet && v === selectedStreet) {
+        hideStreetError();
         streetInput.classList.add('valid');
         streetInput.classList.remove('invalid');
-        trySave();
       } else {
+        streetInput.value = '';
         selectedStreet = '';
         streetInput.classList.add('invalid');
         streetInput.classList.remove('valid');
-        showStreetError('רחוב לא נמצא במאגר. בחר מהרשימה.');
+        showStreetError('יש לבחור רחוב מהרשימה.');
       }
-    }, 250);
+    }, 200);
   });
 
   // =============================================
@@ -401,7 +378,10 @@
   // =============================================
 
   cityInput.addEventListener('input', function() {
-    selectedCity='';selectedStreet='';currentCityStreets=[];streetInput.value='';streetInput.disabled=true;streetInput.placeholder='בחר עיר קודם...';cityInput.classList.remove('valid');streetInput.classList.remove('valid');
+    selectedCity='';selectedStreet='';currentCityStreets=[];streetInput.value='';streetInput.disabled=true;streetInput.placeholder='בחר עיר קודם...';
+    cityInput.classList.remove('valid','invalid');
+    streetInput.classList.remove('valid','invalid');
+    hideCityError();hideStreetError();
     var v=cityInput.value.trim();
     if(v.length<1){hideS(citySuggestions);updateStatus();return;}
 
@@ -446,7 +426,9 @@
   // =============================================
 
   streetInput.addEventListener('input',function(){
-    selectedStreet='';streetInput.classList.remove('valid');
+    selectedStreet='';
+    streetInput.classList.remove('valid','invalid');
+    hideStreetError();
     if(!selectedCity)return;
     var v=streetInput.value.trim();
 
