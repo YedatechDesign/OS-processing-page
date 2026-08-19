@@ -71,12 +71,15 @@
 </div>
 
 <script>
-  var GOV_API = 'https://data.gov.il/api/3/action/datastore_search';
-  var STREETS_RESOURCE = '9ad3862c-8391-4b2f-84a4-2d4c68625f4b';
+  // Address directory is served as a static, same-origin snapshot (refreshed by
+  // a scheduled n8n job), NOT fetched live from data.gov.il. The gov.il API
+  // stopped sending CORS headers, so a browser fetch to it is blocked; and its
+  // q-search no longer matches partial words. Reading our own file avoids both.
+  var CITIES_URL = 'cities-streets.json';  // same-origin as this page (prod + local)
   var SAVE_WEBHOOK = 'https://yedauto.com/webhook/save-address';
 
   var allCities = [];
-  var allRecords = [];
+  var cityStreets = {};   // { cityName: [street, ...] }
   var currentCityStreets = [];
   var selectedEmail = '';
   var selectedCity = '';
@@ -230,80 +233,33 @@
   });
 
   // =============================================
-  // API SEARCH (used while full data loads)
-  // =============================================
-
-  async function apiSearchCities(query) {
-    try {
-      var url = GOV_API + '?resource_id=' + STREETS_RESOURCE + '&limit=100&fields=שם_ישוב&q=' + encodeURIComponent(query);
-      var res = await fetch(url);
-      var data = await res.json();
-      if (!data.success) return [];
-      var set = new Set();
-      data.result.records.forEach(function(r) {
-        var c = (r['שם_ישוב'] || '').trim();
-        if (c) set.add(c);
-      });
-      return Array.from(set).sort();
-    } catch(e) { return []; }
-  }
-
-  async function apiSearchStreets(city, query) {
-    try {
-      var filters = JSON.stringify({'שם_ישוב': city});
-      var url = GOV_API + '?resource_id=' + STREETS_RESOURCE + '&limit=500&fields=שם_רחוב&filters=' + encodeURIComponent(filters);
-      if (query) url += '&q=' + encodeURIComponent(query);
-      var res = await fetch(url);
-      var data = await res.json();
-      if (!data.success) return [];
-      var set = new Set();
-      data.result.records.forEach(function(r) {
-        var s = (r['שם_רחוב'] || '').trim();
-        if (s && s !== 'None') set.add(s);
-      });
-      return Array.from(set).sort();
-    } catch(e) { return []; }
-  }
-
-  // =============================================
-  // LOAD FULL DATA IN BACKGROUND
+  // LOAD DIRECTORY (single same-origin static file)
   // =============================================
 
   async function fetchR(url, retries) {
     retries = retries || 3;
     for (var i = 0; i < retries; i++) {
-      try { var r = await fetch(url); if (r.ok) return r; } catch(e) { if (i < retries-1) await new Promise(function(r){setTimeout(r,1000*(i+1));}); }
+      try { var r = await fetch(url); if (r.ok) return r; } catch(e) {}
+      if (i < retries-1) await new Promise(function(r){setTimeout(r,1000*(i+1));});
     }
-    throw new Error('Failed');
+    throw new Error('Failed to load ' + url);
   }
 
   async function loadAllData() {
     try {
-      var citySet = new Set(); var records = []; var offset = 0; var limit = 10000;
-      while (true) {
-        var url = GOV_API + '?resource_id=' + STREETS_RESOURCE + '&limit=' + limit + '&fields=שם_ישוב,שם_רחוב&offset=' + offset;
-        var res = await fetchR(url, 3); var data = await res.json();
-        if (!data.success || !data.result.records || data.result.records.length === 0) break;
-        for (var j = 0; j < data.result.records.length; j++) {
-          var r = data.result.records[j];
-          var tc = (r['שם_ישוב'] || '').trim(); var ts = (r['שם_רחוב'] || '').trim();
-          if (tc) citySet.add(tc);
-          if (tc && ts && ts !== 'None') records.push({ city: tc, street: ts });
-        }
-        if (data.result.records.length < limit) break;
-        offset += limit;
-      }
-      allRecords = records; allCities = Array.from(citySet).sort(); dataLoaded = true;
-      console.log('Data loaded: ' + allCities.length + ' cities, ' + allRecords.length + ' streets');
+      var res = await fetchR(CITIES_URL, 3);
+      var data = await res.json();
+      cityStreets = data.cities || {};
+      allCities = Object.keys(cityStreets).sort();
+      dataLoaded = true;
+      console.log('Directory loaded: ' + allCities.length + ' cities');
     } catch (err) {
-      console.error('Background load failed:', err);
+      console.error('Directory load failed:', err);
     }
   }
 
   function getStreets(city) {
-    var s = new Set();
-    for (var i = 0; i < allRecords.length; i++) if (allRecords[i].city === city) s.add(allRecords[i].street);
-    return Array.from(s).sort();
+    return (cityStreets[city] || []).slice();
   }
 
   // =============================================
@@ -326,27 +282,6 @@
   }
 
   function hl(t,q) { if(!q)return t; var i=t.indexOf(q); if(i===-1)return t; return t.substring(0,i)+'<span class="match">'+t.substring(i,i+q.length)+'</span>'+t.substring(i+q.length); }
-
-  // =============================================
-  // SEARCH — uses local data if loaded, API otherwise
-  // =============================================
-
-  async function searchCities(query) {
-    if (dataLoaded) {
-      return fuzzy(allCities, query);
-    } else {
-      return await apiSearchCities(query);
-    }
-  }
-
-  async function searchStreets(city, query) {
-    if (dataLoaded) {
-      if (currentCityStreets.length === 0) currentCityStreets = getStreets(city);
-      return fuzzy(currentCityStreets, query);
-    } else {
-      return await apiSearchStreets(city, query);
-    }
-  }
 
   // =============================================
   // UI
@@ -389,12 +324,12 @@
     if (dataLoaded) {
       showS(citySuggestions,fuzzy(allCities,v),v,selectCity);
     } else {
+      // Directory still loading — show a spinner and retry once it arrives.
       showLoading(citySuggestions);
-      searchTimer = setTimeout(async function() {
-        var results = await apiSearchCities(v);
-        if (cityInput.value.trim() === v) {
-          showS(citySuggestions,results,v,selectCity);
-        }
+      searchTimer = setTimeout(function retryCity() {
+        if (cityInput.value.trim() !== v) return;
+        if (dataLoaded) showS(citySuggestions,fuzzy(allCities,v),v,selectCity);
+        else searchTimer = setTimeout(retryCity, 300);
       }, 300);
     }
     updateStatus();
@@ -437,11 +372,15 @@
       if (currentCityStreets.length === 0) currentCityStreets = getStreets(selectedCity);
       showS(streetSuggestions,fuzzy(currentCityStreets,v),v,selectStreet);
     } else {
+      // Directory still loading — show a spinner and retry once it arrives.
       showLoading(streetSuggestions);
-      searchTimer = setTimeout(async function() {
-        var results = await apiSearchStreets(selectedCity, v);
-        if (streetInput.value.trim() === v) {
-          showS(streetSuggestions,results,v,selectStreet);
+      searchTimer = setTimeout(function retryStreet() {
+        if (streetInput.value.trim() !== v || !selectedCity) return;
+        if (dataLoaded) {
+          if (currentCityStreets.length === 0) currentCityStreets = getStreets(selectedCity);
+          showS(streetSuggestions,fuzzy(currentCityStreets,v),v,selectStreet);
+        } else {
+          searchTimer = setTimeout(retryStreet, 300);
         }
       }, 300);
     }
