@@ -3441,6 +3441,16 @@
       "remarks": "https://maps.app.goo.gl/8PRyhXLuErK2scKx8."
     },
     {
+      "code": "3338",
+      "name": "החנות של גילי",
+      "city": "ירושלים",
+      "street": "עין כרם",
+      "house": "76",
+      "lat": 31.76724425337716,
+      "lng": 35.16243328,
+      "remarks": "https://maps.app.goo.gl/SvnK8mGKDdLACBLp7"
+    },
+    {
       "code": "2417",
       "name": "כלל תקשורת",
       "city": "ירושלים",
@@ -8301,6 +8311,6 @@
       "remarks": ""
     }
   ],
-  "updated": "2026-09-06T20:00:33.097Z",
-  "count": 830
+  "updated": "2026-09-07T00:00:32.454Z",
+  "count": 831
 }
