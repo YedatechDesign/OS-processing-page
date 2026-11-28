@@ -3501,16 +3501,6 @@
       "remarks": "https://maps.app.goo.gl/8PRyhXLuErK2scKx8."
     },
     {
-      "code": "3338",
-      "name": "החנות של גילי",
-      "city": "ירושלים",
-      "street": "עין כרם",
-      "house": "76",
-      "lat": 31.76724425337716,
-      "lng": 35.16243328,
-      "remarks": "https://maps.app.goo.gl/SvnK8mGKDdLACBLp7"
-    },
-    {
       "code": "4594",
       "name": "טמבור היובל",
       "city": "ירושלים",
@@ -4348,6 +4338,16 @@
       "house": "16",
       "lat": 31.958939,
       "lng": 34.879949,
+      "remarks": ""
+    },
+    {
+      "code": "6453",
+      "name": "מינימרקט פינחס",
+      "city": "לוד",
+      "street": "כהן אלי",
+      "house": "12",
+      "lat": 31.950850094235,
+      "lng": 34.8883574267,
       "remarks": ""
     },
     {
@@ -8221,6 +8221,6 @@
       "remarks": ""
     }
   ],
-  "updated": "2026-11-28T05:00:31.944Z",
+  "updated": "2026-11-28T09:00:32.381Z",
   "count": 822
 }
